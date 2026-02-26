@@ -19,7 +19,7 @@
         "NSCameraUsageDescription": "GeoIdeaPlus necesita acceso a la cámara para capturar una foto del lugar.",
         "NSPhotoLibraryUsageDescription": "GeoIdeaPlus guarda las fotos capturadas en tu dispositivo."
       },
-      "bundleIdentifier": "com.anonymous.geoIdeaPlus"
+      "bundleIdentifier": "com.kruzgroup.geoideaplus"
     },
     "android": {
       "adaptiveIcon": {
@@ -35,7 +35,7 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.CAMERA"
       ],
-      "package": "com.anonymous.geoIdeaPlus"
+      "package": "com.kruzgroup.geoideaplus"
     },
     "web": {
       "favicon": "./assets/favicon.png"
