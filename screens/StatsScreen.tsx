@@ -3,26 +3,40 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { useTheme, Text, Card, ProgressBar, Divider } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTabIndex } from 'react-native-paper-tabs';
-import { RECORDS_KEY } from './CapturaScreen';
+import { RECORDS_KEY, type GeoRecord } from './CapturaScreen';
 
 const MY_TAB_INDEX = 3;
 
+type AppColors = ReturnType<typeof useTheme>['colors'];
+
 // Colores de estatus (mismo criterio que MapaScreen)
-const STATUS_COLOR = {
+const STATUS_COLOR: Record<string, string> = {
   'Calificada':   '#00796B',
   'Sin Calificar':'#9E9E9E',
   'Sin Proceso':  '#F59E0B',
 };
 
+type Stats = {
+  total: number;
+  conFoto: number;
+  importados: number;
+  conDim: number;
+  areaTotal: number;
+  byStatus: Record<string, number>;
+  byType: Record<string, number>;
+  byTech: Record<string, number>;
+  byFaces: Record<string, number>;
+};
+
 // ── Cálculo de estadísticas ───────────────────────────────────────────────────
-function computeStats(records) {
+function computeStats(records: GeoRecord[]): Stats {
   const total        = records.length;
   const conFoto      = records.filter((r) => r.photoUri).length;
   const importados   = total - conFoto;
   const conDim       = records.filter((r) => r.dimWidth || r.dimHeight).length;
 
   const areaTotal = records.reduce((sum, r) => {
-    const a = parseFloat(r.area);
+    const a = parseFloat(r.area ?? '');
     return sum + (isNaN(a) ? 0 : a);
   }, 0);
 
@@ -34,16 +48,16 @@ function computeStats(records) {
   return { total, conFoto, importados, conDim, areaTotal, byStatus, byType, byTech, byFaces };
 }
 
-function countBy(records, key) {
-  return records.reduce((acc, r) => {
-    const val = r[key] || '';
+function countBy(records: GeoRecord[], key: keyof GeoRecord): Record<string, number> {
+  return records.reduce<Record<string, number>>((acc, r) => {
+    const val = (r[key] as string) || '';
     acc[val] = (acc[val] || 0) + 1;
     return acc;
   }, {});
 }
 
 // Ordena un objeto {label: count} de mayor a menor, omitiendo clave vacía
-function sortedEntries(obj) {
+function sortedEntries(obj: Record<string, number>): [string, number][] {
   return Object.entries(obj)
     .filter(([k]) => k !== '')
     .sort(([, a], [, b]) => b - a);
@@ -51,7 +65,7 @@ function sortedEntries(obj) {
 
 // ── Componentes de UI ─────────────────────────────────────────────────────────
 
-function SectionTitle({ children, colors }) {
+function SectionTitle({ children, colors }: { children: React.ReactNode; colors: AppColors }) {
   return (
     <Text
       variant="labelLarge"
@@ -63,7 +77,15 @@ function SectionTitle({ children, colors }) {
 }
 
 // Fila con barra de progreso (para estatus y tipos)
-function BarRow({ label, count, total, color, colors }) {
+interface BarRowProps {
+  label: string;
+  count: number;
+  total: number;
+  color: string;
+  colors: AppColors;
+}
+
+function BarRow({ label, count, total, color, colors }: BarRowProps) {
   const pct = total > 0 ? count / total : 0;
   return (
     <View style={styles.barRow}>
@@ -85,7 +107,14 @@ function BarRow({ label, count, total, color, colors }) {
 }
 
 // Pill para tecnología / caras
-function StatPill({ label, count, color, colors }) {
+interface StatPillProps {
+  label: string;
+  count: number;
+  color: string;
+  colors: AppColors;
+}
+
+function StatPill({ label, count, color, colors }: StatPillProps) {
   return (
     <View style={[styles.pill, { backgroundColor: color + '18', borderColor: color + '55' }]}>
       <Text variant="labelLarge" style={{ color, fontWeight: '800' }}>
@@ -99,7 +128,15 @@ function StatPill({ label, count, color, colors }) {
 }
 
 // Tarjeta hero: número grande + etiqueta
-function HeroStat({ value, label, sub, colors, accent }) {
+interface HeroStatProps {
+  value: number | string;
+  label: string;
+  sub?: string;
+  colors: AppColors;
+  accent: string;
+}
+
+function HeroStat({ value, label, sub, colors, accent }: HeroStatProps) {
   return (
     <View style={[styles.heroStat, { backgroundColor: accent + '15', borderColor: accent + '30' }]}>
       <Text style={[styles.heroNumber, { color: accent }]}>{value}</Text>
@@ -118,11 +155,11 @@ function HeroStat({ value, label, sub, colors, accent }) {
 // ── Pantalla ──────────────────────────────────────────────────────────────────
 export default function StatsScreen() {
   const { colors } = useTheme();
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState<Stats | null>(null);
 
   const loadStats = useCallback(async () => {
     const raw = await AsyncStorage.getItem(RECORDS_KEY);
-    const records = raw ? JSON.parse(raw) : [];
+    const records: GeoRecord[] = raw ? JSON.parse(raw) : [];
     setStats(computeStats(records));
   }, []);
 
@@ -135,7 +172,7 @@ export default function StatsScreen() {
 
   const { total, conFoto, importados, conDim, areaTotal, byStatus, byType, byTech, byFaces } = stats;
 
-  const statusEntries = [
+  const statusEntries: [string, number][] = [
     ['Calificada',   byStatus['Calificada']   || 0],
     ['Sin Calificar',byStatus['Sin Calificar'] || 0],
     ['Sin Proceso',  byStatus['Sin Proceso']   || 0],

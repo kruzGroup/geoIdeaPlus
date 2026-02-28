@@ -1,28 +1,46 @@
 import React, { useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme, Text, Card, IconButton, Divider } from 'react-native-paper';
-import { WebView } from 'react-native-webview';
+import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTabIndex } from 'react-native-paper-tabs';
-import { RECORDS_KEY } from './CapturaScreen';
+import { RECORDS_KEY, type GeoRecord } from './CapturaScreen';
 
 const MY_TAB_INDEX = 2;
 
+type AppColors = ReturnType<typeof useTheme>['colors'];
+
 // ── Color de marcador según estatus ───────────────────────────────────────────
-const STATUS_COLOR = {
+const STATUS_COLOR: Record<string, string> = {
   'Calificada':   '#00796B',
   'Sin Calificar':'#9E9E9E',
   'En Proceso':  '#F59E0B',
 };
 const DEFAULT_MARKER_COLOR = '#1565C0';
 
-function markerColor(status) {
+function markerColor(status: string): string {
   return STATUS_COLOR[status] || DEFAULT_MARKER_COLOR;
 }
 
+type MarkerData = {
+  id: string;
+  lat: number;
+  lon: number;
+  color: string;
+  title: string;
+  status: string;
+  type: string;
+  tech: string;
+  faces: string;
+  lat6: string;
+  lon6: string;
+  savedAt: string;
+  area: string;
+};
+
 // ── HTML con Leaflet + marcadores coloreados ──────────────────────────────────
-function buildLeafletHTML(records) {
-  const markers = records.map((r, i) => ({
+function buildLeafletHTML(records: GeoRecord[]): string {
+  const markers: MarkerData[] = records.map((r, i) => ({
     id:      r.id || String(i),
     lat:     r.coordinates?.latitude  ?? 0,
     lon:     r.coordinates?.longitude ?? 0,
@@ -90,7 +108,13 @@ function buildLeafletHTML(records) {
 }
 
 // ── Tarjeta de detalle al seleccionar un marcador ─────────────────────────────
-function DetailCard({ item, onClose, colors }) {
+interface DetailCardProps {
+  item: MarkerData;
+  onClose: () => void;
+  colors: AppColors;
+}
+
+function DetailCard({ item, onClose, colors }: DetailCardProps) {
   return (
     <Card style={[styles.detailCard, { backgroundColor: colors.surface }]} elevation={4}>
       <Card.Content style={{ paddingBottom: 8 }}>
@@ -132,7 +156,13 @@ function DetailCard({ item, onClose, colors }) {
   );
 }
 
-function DetailRow({ label, value, colors }) {
+interface DetailRowProps {
+  label: string;
+  value: string;
+  colors: AppColors;
+}
+
+function DetailRow({ label, value, colors }: DetailRowProps) {
   return (
     <View style={styles.detailRow}>
       <Text variant="labelSmall" style={{ color: colors.onSurfaceVariant, textTransform: 'uppercase', letterSpacing: 0.4 }}>
@@ -148,13 +178,13 @@ function DetailRow({ label, value, colors }) {
 // ── Pantalla ──────────────────────────────────────────────────────────────────
 export default function MapaScreen() {
   const { colors } = useTheme();
-  const [records, setRecords]   = useState([]);
+  const [records, setRecords]   = useState<GeoRecord[]>([]);
   const [html, setHtml]         = useState('');
-  const [selected, setSelected] = useState(null);
+  const [selected, setSelected] = useState<MarkerData | null>(null);
 
   const loadRecords = useCallback(async () => {
     const raw = await AsyncStorage.getItem(RECORDS_KEY);
-    const data = raw ? JSON.parse(raw) : [];
+    const data: GeoRecord[] = raw ? JSON.parse(raw) : [];
     setRecords(data);
     setSelected(null);
     setHtml(buildLeafletHTML(data));
@@ -165,9 +195,9 @@ export default function MapaScreen() {
     if (activeTabIndex === MY_TAB_INDEX) loadRecords();
   }, [activeTabIndex, loadRecords]);
 
-  function handleMessage(event) {
+  function handleMessage(event: WebViewMessageEvent) {
     try {
-      const data = JSON.parse(event.nativeEvent.data);
+      const data: MarkerData = JSON.parse(event.nativeEvent.data);
       setSelected(data);
     } catch {}
   }

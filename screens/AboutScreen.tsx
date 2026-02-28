@@ -1,11 +1,15 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { useTheme, Text, Card, Divider, Chip } from 'react-native-paper';
+import { useTheme, Text, Divider } from 'react-native-paper';
 
 const APP_VERSION = '1.0.0';
 
+type AppColors = ReturnType<typeof useTheme>['colors'];
+
 // ── Funcionalidades principales ────────────────────────────────────────────────
-const FEATURES = [
+type Feature = { icon: string; title: string; desc: string };
+
+const FEATURES: Feature[] = [
   { icon: '📍', title: 'GPS Preciso',       desc: 'Captura coordenadas con alta precisión' },
   { icon: '📸', title: 'Fotografía',        desc: 'Foto asociada a cada registro' },
   { icon: '🗺️', title: 'Mapa Interactivo', desc: 'Visualiza tus puntos en el mapa' },
@@ -14,14 +18,12 @@ const FEATURES = [
   { icon: '📥', title: 'Importar CSV',      desc: 'Carga registros desde archivos' },
 ];
 
-// ── Stack tecnológico ──────────────────────────────────────────────────────────
-const TECH_STACK = [
-  'Expo SDK 54', 'React Native', 'React Native Paper', 'AsyncStorage',
-  'Leaflet Maps', 'expo-location', 'expo-image-picker',
-];
-
 // ── Componentes ───────────────────────────────────────────────────────────────
-function FeatureCard({ icon, title, desc, colors }) {
+interface FeatureCardProps extends Feature {
+  colors: AppColors;
+}
+
+function FeatureCard({ icon, title, desc, colors }: FeatureCardProps) {
   return (
     <View style={[styles.featureCard, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
       <Text style={styles.featureIcon}>{icon}</Text>
@@ -35,7 +37,7 @@ function FeatureCard({ icon, title, desc, colors }) {
   );
 }
 
-function SectionLabel({ children, colors }) {
+function SectionLabel({ children, colors }: { children: React.ReactNode; colors: AppColors }) {
   return (
     <Text
       variant="labelLarge"
@@ -85,55 +87,15 @@ export default function AboutScreen() {
         ))}
       </View>
 
-      {/* ── Stack ── */}
-      <SectionLabel colors={colors}>TECNOLOGÍA</SectionLabel>
-      <Card style={[styles.card, { backgroundColor: colors.surface }]} elevation={2}>
-        <Card.Content style={styles.techContent}>
-          {TECH_STACK.map((t) => (
-            <Chip
-              key={t}
-              compact
-              style={[styles.techChip, { backgroundColor: colors.secondaryContainer }]}
-              textStyle={{ color: colors.onSecondaryContainer, fontSize: 11 }}
-            >
-              {t}
-            </Chip>
-          ))}
-        </Card.Content>
-      </Card>
-
-      {/* ── Info ── */}
-      <SectionLabel colors={colors}>INFORMACIÓN</SectionLabel>
-      <Card style={[styles.card, { backgroundColor: colors.surface }]} elevation={2}>
-        <Card.Content>
-          {[
-            { label: 'Versión',     value: APP_VERSION },
-            { label: 'Plataforma',  value: 'Android · iOS' },
-            { label: 'SDK',         value: 'Expo SDK 54' },
-            { label: 'Arquitectura',value: 'React Native (Expo)' },
-          ].map(({ label, value }, i, arr) => (
-            <React.Fragment key={label}>
-              <View style={styles.infoRow}>
-                <Text variant="labelMedium" style={{ color: colors.onSurfaceVariant, flex: 1 }}>
-                  {label}
-                </Text>
-                <Text variant="bodyMedium" style={{ color: colors.onSurface, fontWeight: '600' }}>
-                  {value}
-                </Text>
-              </View>
-              {i < arr.length - 1 && <Divider />}
-            </React.Fragment>
-          ))}
-        </Card.Content>
-      </Card>
+      <Divider style={{ marginHorizontal: 16, marginTop: 20 }} />
 
       {/* ── Footer ── */}
       <View style={styles.footer}>
         <Text variant="labelSmall" style={{ color: colors.outline, textAlign: 'center' }}>
-          Hecho con ❤️ · {new Date().getFullYear()}
+          by FrankyKruz 🫶🏻 ® {new Date().getFullYear()}
         </Text>
         <Text variant="labelSmall" style={{ color: colors.outlineVariant, textAlign: 'center', marginTop: 2 }}>
-          GeoIdeaPlus · Todos los derechos reservados
+          KruzGroup · Todos los derechos reservados
         </Text>
       </View>
     </ScrollView>
@@ -217,27 +179,6 @@ const styles = StyleSheet.create({
   },
   featureIcon: {
     fontSize: 28,
-  },
-
-  // Tech chips
-  card: {
-    borderRadius: 16,
-    marginHorizontal: 16,
-  },
-  techContent: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  techChip: {
-    height: 30,
-  },
-
-  // Info rows
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
   },
 
   // Footer

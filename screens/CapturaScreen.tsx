@@ -16,8 +16,47 @@ export const TECHNOLOGY_TYPES = ['LED', 'Luminoso', 'Normal'];
 export const FACE_TYPES       = ['Una Cara', 'Doble Cara'];
 export const STATUS_TYPES     = ['Calificada', 'Sin Calificar', 'Sin Proceso'];
 
+export type GeoRecord = {
+  id: string;
+  photoUri: string;
+  coordinates: { latitude: number; longitude: number };
+  mapUrl: string;
+  savedAt: string;
+  cuenta: string;
+  fieldId: string;
+  structureType: string;
+  technology: string;
+  faces: string;
+  status: string;
+  dimWidth: string;
+  dimHeight: string;
+  area: string | null;
+};
+
+type Step = 'idle' | 'capturing' | 'previewing' | 'saving';
+
+type Preview = {
+  photoUri: string;
+  coordinates: { latitude: number; longitude: number };
+  mapUrl: string;
+  savedAt: string;
+};
+
+type AppColors = ReturnType<typeof useTheme>['colors'];
+
 // Componente reutilizable para cada dropdown
-function DropdownField({ label, options, value, visible, onOpen, onClose, onSelect, colors }) {
+interface DropdownFieldProps {
+  label: string;
+  options: string[];
+  value: string;
+  visible: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onSelect: (v: string) => void;
+  colors: AppColors;
+}
+
+function DropdownField({ label, options, value, visible, onOpen, onClose, onSelect, colors }: DropdownFieldProps) {
   // Glifo chevron-down de MaterialCommunityIcons (codepoint 0xF0140)
   const chevron = String.fromCodePoint(0xF0140);
 
@@ -63,9 +102,9 @@ function DropdownField({ label, options, value, visible, onOpen, onClose, onSele
 
 export default function CapturaScreen() {
   const { colors } = useTheme();
-  const [step, setStep] = useState('idle');
+  const [step, setStep] = useState<Step>('idle');
   const [showCompleted, setShowCompleted] = useState(false);
-  const [preview, setPreview] = useState(null); // { photoUri, coordinates, mapUrl, savedAt }
+  const [preview, setPreview] = useState<Preview | null>(null);
   const [copied, setCopied] = useState(false);
   const [dimWidth, setDimWidth] = useState('');
   const [dimHeight, setDimHeight] = useState('');
@@ -144,7 +183,7 @@ export default function CapturaScreen() {
     setStep('saving');
     try {
       const raw = await AsyncStorage.getItem(RECORDS_KEY);
-      const records = raw ? JSON.parse(raw) : [];
+      const records: GeoRecord[] = raw ? JSON.parse(raw) : [];
       const area = calcArea(dimWidth, dimHeight);
       records.unshift({ id: Date.now().toString(), ...preview, dimWidth, dimHeight, area, cuenta, fieldId, structureType, technology, faces, status }); // más nuevo primero
       await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(records));
@@ -197,7 +236,7 @@ export default function CapturaScreen() {
   };
 
   // Aplica máscara 0000-0000 al campo Cuenta
-  const handleCuentaChange = (text) => {
+  const handleCuentaChange = (text: string) => {
     const digits = text.replace(/\D/g, '').slice(0, 8);
     setCuenta(digits.length <= 4 ? digits : `${digits.slice(0, 4)}-${digits.slice(4)}`);
   };

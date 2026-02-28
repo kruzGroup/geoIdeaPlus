@@ -11,7 +11,7 @@ const originalResolveRequest = config.resolver.resolveRequest;
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName === 'react-native-vector-icons/MaterialCommunityIcons') {
     return {
-      filePath: path.resolve(__dirname, 'vendor/MaterialCommunityIcons.js'),
+      filePath: path.resolve(__dirname, 'vendor/MaterialCommunityIcons.tsx'),
       type: 'sourceFile',
     };
   }

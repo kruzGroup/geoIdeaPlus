@@ -20,13 +20,15 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Clipboard from 'expo-clipboard';
 import { useTabIndex } from 'react-native-paper-tabs';
 import { ReactNativeZoomableView } from '@openspacelabs/react-native-zoomable-view';
-import { RECORDS_KEY, STRUCTURE_TYPES, TECHNOLOGY_TYPES, FACE_TYPES, STATUS_TYPES } from './CapturaScreen';
+import { RECORDS_KEY, STRUCTURE_TYPES, TECHNOLOGY_TYPES, FACE_TYPES, STATUS_TYPES, type GeoRecord } from './CapturaScreen';
 import DimensionsInput, { calcArea } from '../components/DimensionsInput';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import * as ImagePicker from 'expo-image-picker';
 
 const MY_TAB_INDEX = 1;
+
+type AppColors = ReturnType<typeof useTheme>['colors'];
 
 // ── CSV: cabeceras canónicas ───────────────────────────────────────────────────
 const CSV_HEADERS = [
@@ -36,8 +38,8 @@ const CSV_HEADERS = [
 ];
 
 // ── Parser de una línea CSV (respeta campos entre comillas) ───────────────────
-function parseCSVRow(line) {
-  const fields = [];
+function parseCSVRow(line: string): string[] {
+  const fields: string[] = [];
   let current = '';
   let inQuotes = false;
   for (let i = 0; i < line.length; i++) {
@@ -56,7 +58,7 @@ function parseCSVRow(line) {
 }
 
 // ── Escapa un campo CSV (envuelve en comillas si tiene coma o comilla) ────────
-function escapeCSVField(value) {
+function escapeCSVField(value: unknown): string {
   const str = value == null ? '' : String(value);
   return str.includes(',') || str.includes('"') || str.includes('\n')
     ? `"${str.replace(/"/g, '""')}"`
@@ -64,7 +66,7 @@ function escapeCSVField(value) {
 }
 
 // ── Convierte array de registros en texto CSV ─────────────────────────────────
-function buildCSV(records) {
+function buildCSV(records: GeoRecord[]): string {
   const rows = [CSV_HEADERS.join(',')];
   for (const r of records) {
     rows.push([
@@ -88,16 +90,16 @@ function buildCSV(records) {
 }
 
 // ── Convierte texto CSV en array de registros válidos ─────────────────────────
-function csvToRecords(csv) {
+function csvToRecords(csv: string): GeoRecord[] {
   const lines = csv.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
 
   const headers = parseCSVRow(lines[0]).map((h) => h.trim());
-  const result  = [];
+  const result: GeoRecord[] = [];
 
   for (let i = 1; i < lines.length; i++) {
     const values = parseCSVRow(lines[i]);
-    const obj    = {};
+    const obj: Record<string, string> = {};
     headers.forEach((h, idx) => { obj[h] = (values[idx] ?? '').trim(); });
 
     const lat = parseFloat(obj.latitude);
@@ -125,7 +127,12 @@ function csvToRecords(csv) {
 }
 
 // ── Visor de imagen a pantalla completa con zoom ─────────────────────────────
-function ImageViewerModal({ uri, onClose }) {
+interface ImageViewerModalProps {
+  uri: string;
+  onClose: () => void;
+}
+
+function ImageViewerModal({ uri, onClose }: ImageViewerModalProps) {
   const { width, height } = useWindowDimensions();
 
   return (
@@ -191,7 +198,18 @@ const viewerStyles = StyleSheet.create({
 });
 
 // ── Dropdown reutilizable para el modal de edición ───────────────────────────
-function LocalDropdownField({ label, options, value, visible, onOpen, onClose, onSelect, colors }) {
+interface LocalDropdownFieldProps {
+  label: string;
+  options: string[];
+  value: string;
+  visible: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onSelect: (v: string) => void;
+  colors: AppColors;
+}
+
+function LocalDropdownField({ label, options, value, visible, onOpen, onClose, onSelect, colors }: LocalDropdownFieldProps) {
   const chevron = String.fromCodePoint(0xF0140);
   return (
     <View style={{ marginBottom: 12 }}>
@@ -232,7 +250,16 @@ function LocalDropdownField({ label, options, value, visible, onOpen, onClose, o
 }
 
 // ── Modal de edición (bottom sheet) ──────────────────────────────────────────
-function EditModal({ record, colors, onSave, onClose }) {
+type EditableFields = Pick<GeoRecord, 'cuenta' | 'fieldId' | 'dimWidth' | 'dimHeight' | 'area' | 'structureType' | 'technology' | 'faces' | 'status'>;
+
+interface EditModalProps {
+  record: GeoRecord;
+  colors: AppColors;
+  onSave: (fields: EditableFields) => void;
+  onClose: () => void;
+}
+
+function EditModal({ record, colors, onSave, onClose }: EditModalProps) {
   const [cuenta, setCuenta]               = useState(record.cuenta        || '');
   const [fieldId, setFieldId]             = useState(record.fieldId       || '');
   const [dimWidth, setDimWidth]           = useState(record.dimWidth      || '');
@@ -241,9 +268,9 @@ function EditModal({ record, colors, onSave, onClose }) {
   const [technology, setTechnology]       = useState(record.technology    || '');
   const [faces, setFaces]                 = useState(record.faces         || '');
   const [status, setStatus]               = useState(record.status        || '');
-  const [openMenu, setOpenMenu]           = useState(null);
+  const [openMenu, setOpenMenu]           = useState<string | null>(null);
 
-  const handleCuentaChange = (text) => {
+  const handleCuentaChange = (text: string) => {
     const digits = text.replace(/\D/g, '').slice(0, 8);
     setCuenta(digits.length <= 4 ? digits : `${digits.slice(0, 4)}-${digits.slice(4)}`);
   };
@@ -372,7 +399,13 @@ function EditModal({ record, colors, onSave, onClose }) {
 }
 
 // ── Fila de metadato: etiqueta + valor ────────────────────────────────────────
-function MetaRow({ label, value, colors }) {
+interface MetaRowProps {
+  label: string;
+  value: string | null | undefined;
+  colors: AppColors;
+}
+
+function MetaRow({ label, value, colors }: MetaRowProps) {
   if (!value) return null;
   return (
     <View style={styles.metaRow}>
@@ -387,7 +420,18 @@ function MetaRow({ label, value, colors }) {
 }
 
 // ── Tarjeta de registro ───────────────────────────────────────────────────────
-function RecordCard({ record, colors, onDelete, onCopy, onOpenMaps, onPhotoPress, onEdit, onTakePhoto }) {
+interface RecordCardProps {
+  record: GeoRecord;
+  colors: AppColors;
+  onDelete: (id: string, photoUri: string) => void;
+  onCopy: (mapUrl: string) => void;
+  onOpenMaps: (mapUrl: string) => void;
+  onPhotoPress: (uri: string) => void;
+  onEdit: (record: GeoRecord) => void;
+  onTakePhoto: (id: string) => void;
+}
+
+function RecordCard({ record, colors, onDelete, onCopy, onOpenMaps, onPhotoPress, onEdit, onTakePhoto }: RecordCardProps) {
   const hasDetails =
     record.cuenta || record.fieldId || record.structureType ||
     record.technology || record.faces || record.status ||
@@ -528,9 +572,9 @@ function RecordCard({ record, colors, onDelete, onCopy, onOpenMaps, onPhotoPress
 // ── Pantalla principal ────────────────────────────────────────────────────────
 export default function RecordListScreen() {
   const { colors } = useTheme();
-  const [records, setRecords] = useState([]);
-  const [viewerUri, setViewerUri] = useState(null);
-  const [editingRecord, setEditingRecord] = useState(null);
+  const [records, setRecords] = useState<GeoRecord[]>([]);
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
+  const [editingRecord, setEditingRecord] = useState<GeoRecord | null>(null);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
 
@@ -545,7 +589,7 @@ export default function RecordListScreen() {
     if (activeTabIndex === MY_TAB_INDEX) loadRecords();
   }, [activeTabIndex, loadRecords]);
 
-  const handleDelete = (id, photoUri) => {
+  const handleDelete = (id: string, photoUri: string) => {
     Alert.alert('Eliminar registro', '¿Estás seguro?', [
       { text: 'Cancelar', style: 'cancel' },
       {
@@ -563,25 +607,25 @@ export default function RecordListScreen() {
     ]);
   };
 
-  const handleCopy = async (mapUrl) => {
+  const handleCopy = async (mapUrl: string) => {
     await Clipboard.setStringAsync(mapUrl);
     Alert.alert('Copiado', 'Enlace copiado al portapapeles.');
   };
 
-  const handleOpenMaps = (mapUrl) => {
+  const handleOpenMaps = (mapUrl: string) => {
     Linking.openURL(mapUrl);
   };
 
-  const handleSaveEdit = async (updatedFields) => {
+  const handleSaveEdit = async (updatedFields: EditableFields) => {
     const updated = records.map((r) =>
-      r.id === editingRecord.id ? { ...r, ...updatedFields } : r
+      r.id === editingRecord!.id ? { ...r, ...updatedFields } : r
     );
     setRecords(updated);
     await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(updated));
     setEditingRecord(null);
   };
 
-  const handleTakePhoto = async (recordId) => {
+  const handleTakePhoto = async (recordId: string) => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para tomar una fotografía.');
@@ -631,7 +675,7 @@ export default function RecordListScreen() {
             text: 'Agregar a los existentes',
             onPress: async () => {
               const raw = await AsyncStorage.getItem(RECORDS_KEY);
-              const existing = raw ? JSON.parse(raw) : [];
+              const existing: GeoRecord[] = raw ? JSON.parse(raw) : [];
               const merged = [...items, ...existing];
               await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(merged));
               setRecords(merged);
@@ -685,7 +729,7 @@ export default function RecordListScreen() {
     setExporting(true);
     try {
       const now = new Date();
-      const pad = (n) => String(n).padStart(2, '0');
+      const pad = (n: number) => String(n).padStart(2, '0');
       const dateStamp =
         `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
         `_${pad(now.getHours())}-${pad(now.getMinutes())}`;
