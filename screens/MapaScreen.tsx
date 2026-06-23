@@ -14,7 +14,7 @@ type AppColors = ReturnType<typeof useTheme>['colors'];
 const STATUS_COLOR: Record<string, string> = {
   'Calificada':   '#00796B',
   'Sin Calificar':'#9E9E9E',
-  'En Proceso':  '#F59E0B',
+  'Sin Proceso':  '#F59E0B',
 };
 const DEFAULT_MARKER_COLOR = '#1565C0';
 
