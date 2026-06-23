@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, Image, useWindowDimensions } from 'react-native';
 import { useTheme, Text, Divider } from 'react-native-paper';
 
 const APP_VERSION = '1.0.0';
@@ -51,6 +51,8 @@ function SectionLabel({ children, colors }: { children: React.ReactNode; colors:
 // ── Pantalla ──────────────────────────────────────────────────────────────────
 export default function AboutScreen() {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const bannerHeight = Math.min(width * (400 / 600), 220);
 
   return (
     <ScrollView
@@ -66,8 +68,8 @@ export default function AboutScreen() {
       </View>
       <Image
         source={require('../assets/aboutBackground.png')}
-        style={styles.heroBanner}
-        resizeMode="contain"
+        style={[styles.heroBanner, { height: bannerHeight }]}
+        resizeMode="cover"
       />
 
       {/* ── Funcionalidades ── */}
@@ -109,7 +111,6 @@ const styles = StyleSheet.create({
   },
   heroBanner: {
     width: '100%',
-    aspectRatio: 600 / 400,
     marginBottom: 4,
   },
 
