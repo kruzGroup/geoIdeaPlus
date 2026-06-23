@@ -36,6 +36,7 @@ type MarkerData = {
   lon6: string;
   savedAt: string;
   area: string;
+  zona: string;
 };
 
 // ── HTML con Leaflet + marcadores coloreados ──────────────────────────────────
@@ -54,6 +55,7 @@ function buildLeafletHTML(records: GeoRecord[]): string {
     lon6:    (r.coordinates?.longitude ?? 0).toFixed(6),
     savedAt: r.savedAt       || '',
     area:    r.area          || '',
+    zona:    r.zona          || '',
   }));
 
   return `<!DOCTYPE html>
@@ -136,6 +138,7 @@ function DetailCard({ item, onClose, colors }: DetailCardProps) {
         {item.type   ? <DetailRow label="Tipo"       value={item.type}   colors={colors} /> : null}
         {item.tech   ? <DetailRow label="Tecnología" value={item.tech}   colors={colors} /> : null}
         {item.faces  ? <DetailRow label="Caras"      value={item.faces}  colors={colors} /> : null}
+        {item.zona   ? <DetailRow label="Zona"       value={item.zona}   colors={colors} /> : null}
         {item.area   ? <DetailRow label="Área"       value={item.area + ' m²'} colors={colors} /> : null}
         {item.status ? (
           <View style={[styles.statusChip, { backgroundColor: markerColor(item.status) + '22' }]}>

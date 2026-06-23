@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Image } from 'react-native';
 import { useTheme, Text, Divider } from 'react-native-paper';
 
 const APP_VERSION = '1.0.0';
@@ -59,25 +59,16 @@ export default function AboutScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* ── Hero ── */}
-      <View style={[styles.hero, { backgroundColor: colors.primaryContainer }]}>
-        <View style={[styles.heroGlow, { backgroundColor: colors.primary + '22' }]} />
-
-        <View style={[styles.appIconWrap, { backgroundColor: colors.surface, shadowColor: colors.primary }]}>
-          <Text style={styles.appIconEmoji}>🗺️</Text>
-        </View>
-
-        <Text style={[styles.appName, { color: colors.primary }]}>GeoIdeaPlus</Text>
-
-        <Text variant="bodyMedium" style={{ color: colors.onPrimaryContainer, textAlign: 'center', lineHeight: 20 }}>
-          Inventario georreferenciado de estructuras{'\n'}publicitarias al alcance de tu mano
+      <View style={[styles.versionBadge, { backgroundColor: colors.primary }]}>
+        <Text variant="labelSmall" style={{ color: colors.onPrimary, letterSpacing: 1 }}>
+          v{APP_VERSION}
         </Text>
-
-        <View style={[styles.versionBadge, { backgroundColor: colors.primary }]}>
-          <Text variant="labelSmall" style={{ color: colors.onPrimary, letterSpacing: 1 }}>
-            v{APP_VERSION}
-          </Text>
-        </View>
       </View>
+      <Image
+        source={require('../assets/aboutBackground.png')}
+        style={styles.heroBanner}
+        resizeMode="contain"
+      />
 
       {/* ── Funcionalidades ── */}
       <SectionLabel colors={colors}>FUNCIONALIDADES</SectionLabel>
@@ -108,48 +99,18 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
     gap: 4,
   },
-
-  // Hero
-  hero: {
-    alignItems: 'center',
-    paddingTop: 40,
-    paddingBottom: 36,
-    paddingHorizontal: 24,
-    gap: 12,
-    overflow: 'hidden',
-    marginBottom: 4,
-  },
-  heroGlow: {
-    position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    top: -60,
-  },
-  appIconWrap: {
-    width: 88,
-    height: 88,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 6,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-  },
-  appIconEmoji: {
-    fontSize: 44,
-  },
-  appName: {
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
   versionBadge: {
+    alignSelf: 'center',
     paddingHorizontal: 14,
     paddingVertical: 4,
     borderRadius: 20,
-    marginTop: 2,
+    marginTop: 16,
+    marginBottom: 10,
+  },
+  heroBanner: {
+    width: '100%',
+    aspectRatio: 600 / 400,
+    marginBottom: 4,
   },
 
   // Section label
@@ -158,7 +119,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginTop: 20,
     marginBottom: 8,
-    marginLeft: 20,
+    marginHorizontal: 16,
   },
 
   // Features grid
@@ -166,10 +127,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     paddingHorizontal: 16,
-    gap: 10,
+    justifyContent: 'space-between',
+    rowGap: 10,
   },
   featureCard: {
-    width: '47%',
+    width: '48.5%',
     borderRadius: 16,
     borderWidth: 1,
     paddingVertical: 18,

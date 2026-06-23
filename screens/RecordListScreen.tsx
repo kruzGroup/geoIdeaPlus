@@ -20,7 +20,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Clipboard from 'expo-clipboard';
 import { useTabIndex } from 'react-native-paper-tabs';
 import { ReactNativeZoomableView } from '@openspacelabs/react-native-zoomable-view';
-import { RECORDS_KEY, STRUCTURE_TYPES, TECHNOLOGY_TYPES, FACE_TYPES, STATUS_TYPES, type GeoRecord } from './CapturaScreen';
+import { RECORDS_KEY, STRUCTURE_TYPES, TECHNOLOGY_TYPES, FACE_TYPES, STATUS_TYPES, ZONE_TYPES, type GeoRecord } from './CapturaScreen';
 import DimensionsInput, { calcArea } from '../components/DimensionsInput';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
@@ -33,7 +33,7 @@ type AppColors = ReturnType<typeof useTheme>['colors'];
 // ── CSV: cabeceras canónicas ───────────────────────────────────────────────────
 const CSV_HEADERS = [
   'id', 'savedAt', 'latitude', 'longitude', 'mapUrl',
-  'cuenta', 'fieldId', 'structureType', 'technology', 'faces', 'status',
+  'cuenta', 'fieldId', 'structureType', 'technology', 'faces', 'status', 'zona',
   'dimWidth', 'dimHeight', 'area',
 ];
 
@@ -81,6 +81,7 @@ function buildCSV(records: GeoRecord[]): string {
       r.technology,
       r.faces,
       r.status,
+      r.zona,
       r.dimWidth,
       r.dimHeight,
       r.area ?? '',
@@ -118,6 +119,7 @@ function csvToRecords(csv: string): GeoRecord[] {
       technology:    obj.technology    || '',
       faces:         obj.faces         || '',
       status:        obj.status        || '',
+      zona:          obj.zona          || '',
       dimWidth:      obj.dimWidth      || '',
       dimHeight:     obj.dimHeight     || '',
       area:          obj.area          || null,
@@ -250,7 +252,7 @@ function LocalDropdownField({ label, options, value, visible, onOpen, onClose, o
 }
 
 // ── Modal de edición (bottom sheet) ──────────────────────────────────────────
-type EditableFields = Pick<GeoRecord, 'cuenta' | 'fieldId' | 'dimWidth' | 'dimHeight' | 'area' | 'structureType' | 'technology' | 'faces' | 'status'>;
+type EditableFields = Pick<GeoRecord, 'cuenta' | 'fieldId' | 'dimWidth' | 'dimHeight' | 'area' | 'structureType' | 'technology' | 'faces' | 'status' | 'zona'>;
 
 interface EditModalProps {
   record: GeoRecord;
@@ -268,6 +270,7 @@ function EditModal({ record, colors, onSave, onClose }: EditModalProps) {
   const [technology, setTechnology]       = useState(record.technology    || '');
   const [faces, setFaces]                 = useState(record.faces         || '');
   const [status, setStatus]               = useState(record.status        || '');
+  const [zona, setZona]                   = useState(record.zona          || '');
   const [openMenu, setOpenMenu]           = useState<string | null>(null);
 
   const handleCuentaChange = (text: string) => {
@@ -277,7 +280,7 @@ function EditModal({ record, colors, onSave, onClose }: EditModalProps) {
 
   const handleSave = () => {
     const area = calcArea(dimWidth, dimHeight);
-    onSave({ cuenta, fieldId, dimWidth, dimHeight, area, structureType, technology, faces, status });
+    onSave({ cuenta, fieldId, dimWidth, dimHeight, area, structureType, technology, faces, status, zona });
   };
 
   return (
@@ -380,6 +383,16 @@ function EditModal({ record, colors, onSave, onClose }: EditModalProps) {
               onSelect={(v) => { setStatus(v); setOpenMenu(null); }}
               colors={colors}
             />
+            <LocalDropdownField
+              label="Zona"
+              options={ZONE_TYPES}
+              value={zona}
+              visible={openMenu === 'zona'}
+              onOpen={() => setOpenMenu('zona')}
+              onClose={() => setOpenMenu(null)}
+              onSelect={(v) => { setZona(v); setOpenMenu(null); }}
+              colors={colors}
+            />
           </ScrollView>
 
           {/* Botones fijos al pie */}
@@ -434,7 +447,7 @@ interface RecordCardProps {
 function RecordCard({ record, colors, onDelete, onCopy, onOpenMaps, onPhotoPress, onEdit, onTakePhoto }: RecordCardProps) {
   const hasDetails =
     record.cuenta || record.fieldId || record.structureType ||
-    record.technology || record.faces || record.status ||
+    record.technology || record.faces || record.status || record.zona ||
     record.dimWidth || record.dimHeight;
 
   return (
@@ -478,7 +491,7 @@ function RecordCard({ record, colors, onDelete, onCopy, onOpenMaps, onPhotoPress
         </View>
 
         {/* Chips de categorías */}
-        {(record.structureType || record.technology || record.faces || record.status) && (
+        {(record.structureType || record.technology || record.faces || record.status || record.zona) && (
           <View style={styles.chipsRow}>
             {record.structureType ? (
               <Chip icon="billboard" compact style={styles.chip} textStyle={styles.chipText}>
@@ -503,6 +516,16 @@ function RecordCard({ record, colors, onDelete, onCopy, onOpenMaps, onPhotoPress
                 textStyle={[styles.chipText, { color: colors.onPrimaryContainer }]}
               >
                 {record.status}
+              </Chip>
+            ) : null}
+            {record.zona ? (
+              <Chip
+                icon="map-marker-radius-outline"
+                compact
+                style={[styles.chip, { backgroundColor: colors.secondaryContainer }]}
+                textStyle={[styles.chipText, { color: colors.onSecondaryContainer }]}
+              >
+                {record.zona}
               </Chip>
             ) : null}
           </View>

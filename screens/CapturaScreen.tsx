@@ -15,6 +15,7 @@ export const STRUCTURE_TYPES  = ['Valla', 'Rótulo', 'Mupi', 'Cruza Calle', 'Ban
 export const TECHNOLOGY_TYPES = ['LED', 'Luminoso', 'Normal'];
 export const FACE_TYPES       = ['Una Cara', 'Doble Cara'];
 export const STATUS_TYPES     = ['Calificada', 'Sin Calificar', 'Sin Proceso'];
+export const ZONE_TYPES       = ['Zona 1', 'Zona 2', 'Zona 3', 'Zona 4', 'Zona 5'];
 
 export type GeoRecord = {
   id: string;
@@ -28,6 +29,7 @@ export type GeoRecord = {
   technology: string;
   faces: string;
   status: string;
+  zona: string;
   dimWidth: string;
   dimHeight: string;
   area: string | null;
@@ -118,6 +120,8 @@ export default function CapturaScreen() {
   const [facesMenuVisible, setFacesMenuVisible] = useState(false);
   const [status, setStatus] = useState('');
   const [statusMenuVisible, setStatusMenuVisible] = useState(false);
+  const [zona, setZona] = useState('');
+  const [zonaMenuVisible, setZonaMenuVisible] = useState(false);
 
   // ── Iniciar captura ─────────────────────────────────────────────────────
   const startCapture = async () => {
@@ -185,7 +189,7 @@ export default function CapturaScreen() {
       const raw = await AsyncStorage.getItem(RECORDS_KEY);
       const records: GeoRecord[] = raw ? JSON.parse(raw) : [];
       const area = calcArea(dimWidth, dimHeight);
-      records.unshift({ id: Date.now().toString(), ...preview, dimWidth, dimHeight, area, cuenta, fieldId, structureType, technology, faces, status }); // más nuevo primero
+      records.unshift({ id: Date.now().toString(), ...preview, dimWidth, dimHeight, area, cuenta, fieldId, structureType, technology, faces, status, zona }); // más nuevo primero
       await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(records));
       setPreview(null);
       setDimWidth('');
@@ -196,6 +200,7 @@ export default function CapturaScreen() {
       setTechnology('');
       setFaces('');
       setStatus('');
+      setZona('');
       setStep('idle');
       setShowCompleted(true);
     } catch (e) {
@@ -219,6 +224,7 @@ export default function CapturaScreen() {
     setTechnology('');
     setFaces('');
     setStatus('');
+    setZona('');
     setStep('idle');
   };
 
@@ -372,6 +378,17 @@ export default function CapturaScreen() {
                 onOpen={() => setStatusMenuVisible(true)}
                 onClose={() => setStatusMenuVisible(false)}
                 onSelect={(v) => { setStatus(v); setStatusMenuVisible(false); }}
+                colors={colors}
+              />
+
+              <DropdownField
+                label="Zona"
+                options={ZONE_TYPES}
+                value={zona}
+                visible={zonaMenuVisible}
+                onOpen={() => setZonaMenuVisible(true)}
+                onClose={() => setZonaMenuVisible(false)}
+                onSelect={(v) => { setZona(v); setZonaMenuVisible(false); }}
                 colors={colors}
               />
 

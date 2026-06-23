@@ -26,6 +26,7 @@ type Stats = {
   byType: Record<string, number>;
   byTech: Record<string, number>;
   byFaces: Record<string, number>;
+  byZona: Record<string, number>;
 };
 
 // ── Cálculo de estadísticas ───────────────────────────────────────────────────
@@ -44,8 +45,9 @@ function computeStats(records: GeoRecord[]): Stats {
   const byType   = countBy(records, 'structureType');
   const byTech   = countBy(records, 'technology');
   const byFaces  = countBy(records, 'faces');
+  const byZona   = countBy(records, 'zona');
 
-  return { total, conFoto, importados, conDim, areaTotal, byStatus, byType, byTech, byFaces };
+  return { total, conFoto, importados, conDim, areaTotal, byStatus, byType, byTech, byFaces, byZona };
 }
 
 function countBy(records: GeoRecord[], key: keyof GeoRecord): Record<string, number> {
@@ -170,7 +172,7 @@ export default function StatsScreen() {
 
   if (!stats) return null;
 
-  const { total, conFoto, importados, conDim, areaTotal, byStatus, byType, byTech, byFaces } = stats;
+  const { total, conFoto, importados, conDim, areaTotal, byStatus, byType, byTech, byFaces, byZona } = stats;
 
   const statusEntries: [string, number][] = [
     ['Calificada',   byStatus['Calificada']   || 0],
@@ -181,6 +183,7 @@ export default function StatsScreen() {
   const typeEntries  = sortedEntries(byType);
   const techEntries  = sortedEntries(byTech);
   const facesEntries = sortedEntries(byFaces);
+  const zonaEntries  = sortedEntries(byZona);
 
   return (
     <ScrollView
@@ -333,6 +336,31 @@ export default function StatsScreen() {
                   />
                 ))}
               </View>
+            </>
+          )}
+
+          {/* ── Zona ── */}
+          {zonaEntries.length > 0 && (
+            <>
+              <SectionTitle colors={colors}>POR ZONA</SectionTitle>
+              <Card style={[styles.card, { backgroundColor: colors.surface }]} elevation={2}>
+                <Card.Content style={{ gap: 12 }}>
+                  {zonaEntries.map(([label, count], i) => (
+                    <React.Fragment key={label}>
+                      <BarRow
+                        label={label}
+                        count={count}
+                        total={total}
+                        color={colors.secondary}
+                        colors={colors}
+                      />
+                      {i < zonaEntries.length - 1 && (
+                        <Divider style={{ marginVertical: 2 }} />
+                      )}
+                    </React.Fragment>
+                  ))}
+                </Card.Content>
+              </Card>
             </>
           )}
         </>
