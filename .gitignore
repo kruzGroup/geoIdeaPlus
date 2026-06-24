@@ -39,3 +39,10 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# IDE
+.idea/
+
+# Project config files (local only)
+configGIT.md
+mercmuGIT.md
