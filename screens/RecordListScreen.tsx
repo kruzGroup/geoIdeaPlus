@@ -592,6 +592,88 @@ function RecordCard({ record, colors, onDelete, onCopy, onOpenMaps, onPhotoPress
   );
 }
 
+// ── Fila compacta para vista lista ───────────────────────────────────────────
+interface RecordListRowProps {
+  record: GeoRecord;
+  index: number;
+  colors: AppColors;
+  onDelete: (id: string, photoUri: string) => void;
+  onCopy: (mapUrl: string) => void;
+  onOpenMaps: (mapUrl: string) => void;
+  onEdit: (record: GeoRecord) => void;
+}
+
+function RecordListRow({ record, index, colors, onDelete, onCopy, onOpenMaps, onEdit }: RecordListRowProps) {
+  return (
+    <View style={[listRowStyles.row, { backgroundColor: colors.surface, borderBottomColor: colors.outlineVariant }]}>
+      {/* Número de fila */}
+      <View style={[listRowStyles.indexCell, { backgroundColor: colors.primaryContainer }]}>
+        <Text variant="labelSmall" style={{ color: colors.onPrimaryContainer, fontVariant: ['tabular-nums'], fontWeight: '700' }}>
+          {index + 1}
+        </Text>
+      </View>
+
+      {/* Datos principales */}
+      <View style={listRowStyles.dataCell}>
+        <View style={listRowStyles.dataTop}>
+          {record.cuenta ? (
+            <Text variant="labelMedium" style={{ color: colors.onSurface, fontWeight: '700' }}>
+              {record.cuenta}
+            </Text>
+          ) : null}
+          {record.fieldId ? (
+            <Text variant="labelSmall" style={{ color: colors.onSurfaceVariant }}>
+              · ID {record.fieldId}
+            </Text>
+          ) : null}
+        </View>
+
+        <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant, fontVariant: ['tabular-nums'] }}>
+          {record.coordinates.latitude.toFixed(6)}, {record.coordinates.longitude.toFixed(6)}
+        </Text>
+
+        <View style={listRowStyles.chipsRow}>
+          {record.structureType ? (
+            <Chip compact style={listRowStyles.miniChip} textStyle={listRowStyles.miniChipText}>
+              {record.structureType}
+            </Chip>
+          ) : null}
+          {record.status ? (
+            <Chip
+              compact
+              style={[listRowStyles.miniChip, { backgroundColor: colors.primaryContainer }]}
+              textStyle={[listRowStyles.miniChipText, { color: colors.onPrimaryContainer }]}
+            >
+              {record.status}
+            </Chip>
+          ) : null}
+          {record.zona ? (
+            <Chip
+              compact
+              style={[listRowStyles.miniChip, { backgroundColor: colors.secondaryContainer }]}
+              textStyle={[listRowStyles.miniChipText, { color: colors.onSecondaryContainer }]}
+            >
+              {record.zona}
+            </Chip>
+          ) : null}
+        </View>
+
+        <Text variant="bodySmall" style={{ color: colors.outline, fontSize: 10, marginTop: 2 }}>
+          {record.savedAt}
+        </Text>
+      </View>
+
+      {/* Acciones */}
+      <View style={listRowStyles.actionsCell}>
+        <IconButton icon="content-copy" size={17} iconColor={colors.primary} onPress={() => onCopy(record.mapUrl)} style={listRowStyles.miniBtn} />
+        <IconButton icon="map-marker-outline" size={17} iconColor={colors.secondary} onPress={() => onOpenMaps(record.mapUrl)} style={listRowStyles.miniBtn} />
+        <IconButton icon="pencil-outline" size={17} iconColor={colors.onSurfaceVariant} onPress={() => onEdit(record)} style={listRowStyles.miniBtn} />
+        <IconButton icon="trash-can-outline" size={17} iconColor={colors.error} onPress={() => onDelete(record.id, record.photoUri)} style={listRowStyles.miniBtn} />
+      </View>
+    </View>
+  );
+}
+
 // ── Pantalla principal ────────────────────────────────────────────────────────
 export default function RecordListScreen() {
   const { colors } = useTheme();
@@ -600,6 +682,7 @@ export default function RecordListScreen() {
   const [editingRecord, setEditingRecord] = useState<GeoRecord | null>(null);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
 
   const loadRecords = useCallback(async () => {
     const raw = await AsyncStorage.getItem(RECORDS_KEY);
@@ -795,13 +878,42 @@ export default function RecordListScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
 
-      {/* ── Cabecera fija: contador + botones CSV ── */}
+      {/* ── Cabecera fija: contador + toggle + botones CSV ── */}
       <View style={[styles.screenHeader, { borderBottomColor: colors.outlineVariant }]}>
         {records.length > 0 && (
           <RNText style={[styles.pageTitle, { color: colors.primary }]}>
             {records.length} {records.length === 1 ? 'Registro' : 'Registros'}
           </RNText>
         )}
+
+        {/* Toggle cards / lista */}
+        <View style={[styles.viewToggle, { backgroundColor: colors.surfaceVariant, borderColor: colors.outlineVariant }]}>
+          <TouchableOpacity
+            style={[styles.toggleBtn, viewMode === 'cards' && { backgroundColor: colors.primary }]}
+            onPress={() => setViewMode('cards')}
+            activeOpacity={0.8}
+          >
+            <IconButton
+              icon="view-grid"
+              size={18}
+              iconColor={viewMode === 'cards' ? colors.onPrimary : colors.onSurfaceVariant}
+              style={styles.toggleIcon}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.toggleBtn, viewMode === 'list' && { backgroundColor: colors.primary }]}
+            onPress={() => setViewMode('list')}
+            activeOpacity={0.8}
+          >
+            <IconButton
+              icon="format-list-bulleted"
+              size={18}
+              iconColor={viewMode === 'list' ? colors.onPrimary : colors.onSurfaceVariant}
+              style={styles.toggleIcon}
+            />
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.csvActions}>
           <Button
             mode="outlined"
@@ -852,23 +964,54 @@ export default function RecordListScreen() {
         </View>
       </View>
 
+      {/* Cabecera de columnas para vista lista */}
+      {viewMode === 'list' && records.length > 0 && (
+        <View style={[styles.listHeader, { backgroundColor: colors.surfaceVariant, borderBottomColor: colors.outlineVariant }]}>
+          <View style={styles.listHeaderIndex}>
+            <Text variant="labelSmall" style={{ color: colors.onSurfaceVariant, fontWeight: '700' }}>#</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text variant="labelSmall" style={{ color: colors.onSurfaceVariant, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Cuenta / Coordenadas / Estatus
+            </Text>
+          </View>
+          <View style={styles.listHeaderActions}>
+            <Text variant="labelSmall" style={{ color: colors.onSurfaceVariant, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Acc.
+            </Text>
+          </View>
+        </View>
+      )}
+
       <FlatList
         data={records}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <RecordCard
-            record={item}
-            colors={colors}
-            onDelete={handleDelete}
-            onCopy={handleCopy}
-            onOpenMaps={handleOpenMaps}
-            onPhotoPress={setViewerUri}
-            onEdit={setEditingRecord}
-            onTakePhoto={handleTakePhoto}
-          />
-        )}
+        renderItem={({ item, index }) =>
+          viewMode === 'cards' ? (
+            <RecordCard
+              record={item}
+              colors={colors}
+              onDelete={handleDelete}
+              onCopy={handleCopy}
+              onOpenMaps={handleOpenMaps}
+              onPhotoPress={setViewerUri}
+              onEdit={setEditingRecord}
+              onTakePhoto={handleTakePhoto}
+            />
+          ) : (
+            <RecordListRow
+              record={item}
+              index={index}
+              colors={colors}
+              onDelete={handleDelete}
+              onCopy={handleCopy}
+              onOpenMaps={handleOpenMaps}
+              onEdit={setEditingRecord}
+            />
+          )
+        }
         ListEmptyComponent={<ListEmpty />}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={viewMode === 'cards' ? styles.list : styles.listFlat}
         showsVerticalScrollIndicator={false}
       />
 
@@ -1020,6 +1163,100 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: 20,
+  },
+  listFlat: {
+    paddingTop: 0,
+    paddingBottom: 40,
+    flexGrow: 1,
+  },
+  viewToggle: {
+    flexDirection: 'row',
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+    marginHorizontal: 8,
+  },
+  toggleBtn: {
+    width: 36,
+    height: 32,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  toggleIcon: {
+    margin: 0,
+    width: 36,
+    height: 32,
+  },
+  listHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  listHeaderIndex: {
+    width: 32,
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  listHeaderActions: {
+    width: 88,
+    alignItems: 'center',
+  },
+});
+
+// ── Estilos de fila lista ─────────────────────────────────────────────────────
+const listRowStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingLeft: 12,
+    paddingRight: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  indexCell: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  dataCell: {
+    flex: 1,
+    gap: 2,
+  },
+  dataTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexWrap: 'wrap',
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginTop: 3,
+  },
+  miniChip: {
+    height: 22,
+  },
+  miniChipText: {
+    fontSize: 10,
+    marginVertical: 0,
+    lineHeight: 13,
+  },
+  actionsCell: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  miniBtn: {
+    margin: 0,
+    width: 32,
+    height: 32,
   },
 });
 
