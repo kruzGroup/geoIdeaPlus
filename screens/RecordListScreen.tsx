@@ -592,6 +592,142 @@ function RecordCard({ record, colors, onDelete, onCopy, onOpenMaps, onPhotoPress
   );
 }
 
+// ── Modal de detalle de registro ──────────────────────────────────────────────
+interface RecordDetailModalProps {
+  record: GeoRecord;
+  colors: AppColors;
+  onClose: () => void;
+  onEdit: (record: GeoRecord) => void;
+  onDelete: (id: string, photoUri: string) => void;
+  onCopy: (mapUrl: string) => void;
+  onOpenMaps: (mapUrl: string) => void;
+  onPhotoPress: (uri: string) => void;
+  onTakePhoto: (id: string) => void;
+}
+
+function RecordDetailModal({ record, colors, onClose, onEdit, onDelete, onCopy, onOpenMaps, onPhotoPress, onTakePhoto }: RecordDetailModalProps) {
+  const hasDetails =
+    record.cuenta || record.fieldId || record.structureType ||
+    record.technology || record.faces || record.status || record.zona ||
+    record.dimWidth || record.dimHeight;
+
+  return (
+    <Portal>
+      <View style={detailStyles.overlay}>
+        <TouchableOpacity style={StyleSheet.absoluteFillObject} onPress={onClose} activeOpacity={1} />
+        <View style={[detailStyles.sheet, { backgroundColor: colors.surface }]}>
+          {/* Cabecera */}
+          <View style={detailStyles.sheetHeader}>
+            <Text variant="titleMedium" style={{ color: colors.onSurface, fontWeight: '700' }}>
+              Detalle del Registro
+            </Text>
+            <IconButton icon="close" onPress={onClose} iconColor={colors.onSurfaceVariant} />
+          </View>
+          <Divider />
+
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={detailStyles.content}>
+            {/* Foto */}
+            {record.photoUri ? (
+              <TouchableOpacity onPress={() => onPhotoPress(record.photoUri)} activeOpacity={0.85}>
+                <Image source={{ uri: record.photoUri }} style={detailStyles.photo} resizeMode="cover" />
+                <View style={detailStyles.photoHint}>
+                  <Text style={{ color: '#fff', fontSize: 11 }}>Toca para ampliar</Text>
+                </View>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[detailStyles.photo, detailStyles.photoPlaceholder]}
+                activeOpacity={0.7}
+                onPress={() => { onClose(); onTakePhoto(record.id); }}
+              >
+                <Text style={{ fontFamily: 'MaterialCommunityIcons', fontSize: 44, color: colors.primary }}>
+                  {String.fromCodePoint(0xF0D5D)}
+                </Text>
+                <Text variant="labelSmall" style={{ color: colors.primary, marginTop: 6, fontWeight: '700' }}>
+                  Tomar fotografía
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Coordenadas */}
+            <View style={[styles.coordRow, { marginTop: 14 }]}>
+              <View style={[styles.coordBadge, { backgroundColor: colors.primaryContainer }]}>
+                <Text variant="labelSmall" style={{ color: colors.onPrimaryContainer, letterSpacing: 0.8 }}>LAT</Text>
+                <Text variant="bodySmall" style={[styles.coordValue, { color: colors.onPrimaryContainer }]}>
+                  {record.coordinates.latitude.toFixed(6)}
+                </Text>
+              </View>
+              <View style={[styles.coordBadge, { backgroundColor: colors.secondaryContainer }]}>
+                <Text variant="labelSmall" style={{ color: colors.onSecondaryContainer, letterSpacing: 0.8 }}>LON</Text>
+                <Text variant="bodySmall" style={[styles.coordValue, { color: colors.onSecondaryContainer }]}>
+                  {record.coordinates.longitude.toFixed(6)}
+                </Text>
+              </View>
+            </View>
+
+            {/* Chips */}
+            {(record.structureType || record.technology || record.faces || record.status || record.zona) && (
+              <View style={styles.chipsRow}>
+                {record.structureType ? (
+                  <Chip icon="billboard" compact style={styles.chip} textStyle={styles.chipText}>{record.structureType}</Chip>
+                ) : null}
+                {record.technology ? (
+                  <Chip icon="lightning-bolt" compact style={styles.chip} textStyle={styles.chipText}>{record.technology}</Chip>
+                ) : null}
+                {record.faces ? (
+                  <Chip icon="flip-horizontal" compact style={styles.chip} textStyle={styles.chipText}>{record.faces}</Chip>
+                ) : null}
+                {record.status ? (
+                  <Chip icon="tag-outline" compact style={[styles.chip, { backgroundColor: colors.primaryContainer }]} textStyle={[styles.chipText, { color: colors.onPrimaryContainer }]}>
+                    {record.status}
+                  </Chip>
+                ) : null}
+                {record.zona ? (
+                  <Chip icon="map-marker-radius-outline" compact style={[styles.chip, { backgroundColor: colors.secondaryContainer }]} textStyle={[styles.chipText, { color: colors.onSecondaryContainer }]}>
+                    {record.zona}
+                  </Chip>
+                ) : null}
+              </View>
+            )}
+
+            {/* Detalles tabulares */}
+            {hasDetails && (
+              <>
+                <Divider style={styles.divider} />
+                <MetaRow label="Cuenta" value={record.cuenta} colors={colors} />
+                <MetaRow label="ID" value={record.fieldId} colors={colors} />
+                {(record.dimWidth || record.dimHeight) && (
+                  <MetaRow
+                    label="Dimensiones"
+                    value={
+                      [record.dimWidth, record.dimHeight].filter(Boolean).join(' × ') +
+                      (record.area ? `  (${record.area} m²)` : '')
+                    }
+                    colors={colors}
+                  />
+                )}
+              </>
+            )}
+
+            <Text variant="bodySmall" style={[styles.savedAt, { color: colors.outline }]}>
+              {record.savedAt}
+            </Text>
+          </ScrollView>
+
+          {/* Acciones fijas al pie */}
+          <Divider />
+          <View style={detailStyles.actions}>
+            <IconButton icon="content-copy" size={22} iconColor={colors.primary} onPress={() => onCopy(record.mapUrl)} />
+            <IconButton icon="map-marker-outline" size={22} iconColor={colors.secondary} onPress={() => onOpenMaps(record.mapUrl)} />
+            <IconButton icon="pencil-outline" size={22} iconColor={colors.onSurfaceVariant} onPress={() => { onClose(); onEdit(record); }} />
+            <IconButton icon="trash-can-outline" size={22} iconColor={colors.error} onPress={() => { onClose(); onDelete(record.id, record.photoUri); }} />
+          </View>
+        </View>
+      </View>
+    </Portal>
+  );
+}
+
 // ── Fila compacta para vista lista ───────────────────────────────────────────
 interface RecordListRowProps {
   record: GeoRecord;
@@ -601,10 +737,12 @@ interface RecordListRowProps {
   onCopy: (mapUrl: string) => void;
   onOpenMaps: (mapUrl: string) => void;
   onEdit: (record: GeoRecord) => void;
+  onPress: (record: GeoRecord) => void;
 }
 
-function RecordListRow({ record, index, colors, onDelete, onCopy, onOpenMaps, onEdit }: RecordListRowProps) {
+function RecordListRow({ record, index, colors, onDelete, onCopy, onOpenMaps, onEdit, onPress }: RecordListRowProps) {
   return (
+    <TouchableOpacity onPress={() => onPress(record)} activeOpacity={0.7}>
     <View style={[listRowStyles.row, { backgroundColor: colors.surface, borderBottomColor: colors.outlineVariant }]}>
       {/* Número de fila */}
       <View style={[listRowStyles.indexCell, { backgroundColor: colors.primaryContainer }]}>
@@ -671,22 +809,116 @@ function RecordListRow({ record, index, colors, onDelete, onCopy, onOpenMaps, on
         <IconButton icon="trash-can-outline" size={17} iconColor={colors.error} onPress={() => onDelete(record.id, record.photoUri)} style={listRowStyles.miniBtn} />
       </View>
     </View>
+    </TouchableOpacity>
+  );
+}
+
+const PAGE_SIZE = 10;
+
+// ── Dropdown compacto para filtros ────────────────────────────────────────────
+interface FilterDropdownProps {
+  label: string;
+  value: string | null;
+  options: string[];
+  colors: AppColors;
+  onSelect: (v: string | null) => void;
+}
+
+function FilterDropdown({ label, value, options, colors, onSelect }: FilterDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const active = value !== null;
+
+  return (
+    <Menu
+      visible={open}
+      onDismiss={() => setOpen(false)}
+      anchor={
+        <TouchableOpacity
+          onPress={() => setOpen(true)}
+          activeOpacity={0.75}
+          style={[
+            filterDropStyles.btn,
+            { borderColor: active ? colors.primary : colors.outline },
+            active && { backgroundColor: colors.primary },
+          ]}
+        >
+          <Text
+            numberOfLines={1}
+            style={[filterDropStyles.btnText, { color: active ? colors.onPrimary : colors.onSurfaceVariant }]}
+          >
+            {value ?? label}
+          </Text>
+          <Text style={{ color: active ? colors.onPrimary : colors.onSurfaceVariant, fontSize: 10, marginLeft: 2 }}>
+            ▾
+          </Text>
+        </TouchableOpacity>
+      }
+    >
+      <Menu.Item
+        title={`Todos`}
+        leadingIcon={value === null ? 'check' : undefined}
+        onPress={() => { onSelect(null); setOpen(false); }}
+      />
+      {options.map((opt) => (
+        <Menu.Item
+          key={opt}
+          title={opt}
+          leadingIcon={value === opt ? 'check' : undefined}
+          onPress={() => { onSelect(opt); setOpen(false); }}
+        />
+      ))}
+    </Menu>
   );
 }
 
 // ── Pantalla principal ────────────────────────────────────────────────────────
 export default function RecordListScreen() {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const isTablet = width >= 600;
+
   const [records, setRecords] = useState<GeoRecord[]>([]);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
   const [editingRecord, setEditingRecord] = useState<GeoRecord | null>(null);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
+  const [detailRecord, setDetailRecord] = useState<GeoRecord | null>(null);
+  const [filterZona, setFilterZona]           = useState<string | null>(null);
+  const [filterStatus, setFilterStatus]       = useState<string | null>(null);
+  const [filterStructure, setFilterStructure] = useState<string | null>(null);
+  const [currentPage, setCurrentPage]         = useState(0);
+
+  const availableZones      = [...new Set(records.map((r) => r.zona).filter(Boolean))]          as string[];
+  const availableStatuses   = [...new Set(records.map((r) => r.status).filter(Boolean))]        as string[];
+  const availableStructures = [...new Set(records.map((r) => r.structureType).filter(Boolean))] as string[];
+
+  const filteredRecords = records.filter((r) => {
+    if (filterZona      && r.zona          !== filterZona)      return false;
+    if (filterStatus    && r.status        !== filterStatus)    return false;
+    if (filterStructure && r.structureType !== filterStructure) return false;
+    return true;
+  });
+
+  const activeFilters = [filterZona, filterStatus, filterStructure].filter(Boolean).length;
+  const totalPages    = Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE));
+  const pagedRecords  = filteredRecords.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
+
+  const clearFilters = () => { setFilterZona(null); setFilterStatus(null); setFilterStructure(null); };
+
+  // Resetear página al cambiar cualquier filtro
+  React.useEffect(() => { setCurrentPage(0); }, [filterZona, filterStatus, filterStructure]);
 
   const loadRecords = useCallback(async () => {
     const raw = await AsyncStorage.getItem(RECORDS_KEY);
-    setRecords(raw ? JSON.parse(raw) : []);
+    if (!raw) { setRecords([]); return; }
+    const parsed: GeoRecord[] = JSON.parse(raw);
+    const migrated = parsed.map((r) =>
+      r.status === 'Sin Proceso' ? { ...r, status: 'En Proceso' } : r
+    );
+    const changed = migrated.some((r, i) => r.status !== parsed[i].status);
+    if (changed) await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(migrated));
+    setRecords(migrated);
   }, []);
 
   // Recarga cada vez que este tab queda activo
@@ -865,103 +1097,146 @@ export default function RecordListScreen() {
 
   const ListEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>🗂️</Text>
+      <Text style={styles.emptyIcon}>{activeFilters > 0 ? '🔍' : '🗂️'}</Text>
       <Text variant="titleMedium" style={{ color: colors.onSurface, fontWeight: '700' }}>
-        Sin Registros
+        {activeFilters > 0 ? 'Sin resultados' : 'Sin Registros'}
       </Text>
       <Text variant="bodyMedium" style={[styles.emptyText, { color: colors.outline }]}>
-        Ve a la pestaña CAPTURA para guardar tu primera ubicación con foto.
+        {activeFilters > 0
+          ? 'Ningún registro coincide con los filtros seleccionados.'
+          : 'Ve a la pestaña CAPTURA para guardar tu primera ubicación con foto.'}
       </Text>
+      {activeFilters > 0 && (
+        <Button mode="outlined" onPress={clearFilters} style={{ marginTop: 12 }}>
+          Quitar filtros
+        </Button>
+      )}
     </View>
   );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
 
-      {/* ── Cabecera fija: contador + toggle + botones CSV ── */}
+      {/* ── Cabecera fija ── */}
       <View style={[styles.screenHeader, { borderBottomColor: colors.outlineVariant }]}>
-        {records.length > 0 && (
-          <RNText style={[styles.pageTitle, { color: colors.primary }]}>
-            {records.length} {records.length === 1 ? 'Registro' : 'Registros'}
-          </RNText>
-        )}
 
-        {/* Toggle cards / lista */}
-        <View style={[styles.viewToggle, { backgroundColor: colors.surfaceVariant, borderColor: colors.outlineVariant }]}>
-          <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'cards' && { backgroundColor: colors.primary }]}
-            onPress={() => setViewMode('cards')}
-            activeOpacity={0.8}
-          >
-            <IconButton
-              icon="view-grid"
-              size={18}
-              iconColor={viewMode === 'cards' ? colors.onPrimary : colors.onSurfaceVariant}
-              style={styles.toggleIcon}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleBtn, viewMode === 'list' && { backgroundColor: colors.primary }]}
-            onPress={() => setViewMode('list')}
-            activeOpacity={0.8}
-          >
-            <IconButton
-              icon="format-list-bulleted"
-              size={18}
-              iconColor={viewMode === 'list' ? colors.onPrimary : colors.onSurfaceVariant}
-              style={styles.toggleIcon}
-            />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.csvActions}>
-          <Button
-            mode="outlined"
-            icon="arrow-down-circle-outline"
-            contentStyle={styles.csvBtnContent}
-            labelStyle={styles.csvBtnLabel}
-            style={styles.csvBtnSmall}
-            loading={importing}
-            disabled={importing}
-            onPress={handleImportCSV}
-          >
-            Importar
-          </Button>
-          {records.length === 0 ? (
-            <Pressable
-              onPress={() =>
-                Alert.alert(
-                  'Sin registros',
-                  'No se pueden exportar registros porque no hay ninguno.',
-                )
-              }
+        {/* Fila 1: contador + botones CSV */}
+        <View style={styles.headerRow1}>
+          {records.length > 0 && (
+            <RNText style={[styles.pageTitle, { color: colors.primary }]}>
+              {activeFilters > 0
+                ? `${filteredRecords.length} / ${records.length} Registros`
+                : `${records.length} ${records.length === 1 ? 'Registro' : 'Registros'}`}
+            </RNText>
+          )}
+          <View style={styles.csvActions}>
+            <Button
+              mode="outlined"
+              icon="arrow-down-circle-outline"
+              contentStyle={styles.csvBtnContent}
+              labelStyle={styles.csvBtnLabel}
+              style={styles.csvBtnSmall}
+              loading={importing}
+              disabled={importing}
+              onPress={handleImportCSV}
             >
+              Importar
+            </Button>
+            {records.length === 0 ? (
+              <Pressable
+                onPress={() =>
+                  Alert.alert('Sin registros', 'No se pueden exportar registros porque no hay ninguno.')
+                }
+              >
+                <Button
+                  mode="contained-tonal"
+                  icon="arrow-up-circle-outline"
+                  contentStyle={styles.csvBtnContent}
+                  labelStyle={styles.csvBtnLabel}
+                  style={styles.csvBtnSmall}
+                  disabled
+                >
+                  Exportar
+                </Button>
+              </Pressable>
+            ) : (
               <Button
                 mode="contained-tonal"
                 icon="arrow-up-circle-outline"
                 contentStyle={styles.csvBtnContent}
                 labelStyle={styles.csvBtnLabel}
                 style={styles.csvBtnSmall}
-                disabled
+                loading={exporting}
+                disabled={exporting}
+                onPress={handleExportCSV}
               >
                 Exportar
               </Button>
-            </Pressable>
-          ) : (
-            <Button
-              mode="contained-tonal"
-              icon="arrow-up-circle-outline"
-              contentStyle={styles.csvBtnContent}
-              labelStyle={styles.csvBtnLabel}
-              style={styles.csvBtnSmall}
-              loading={exporting}
-              disabled={exporting}
-              onPress={handleExportCSV}
-            >
-              Exportar
-            </Button>
-          )}
+            )}
+          </View>
         </View>
+
+        {/* Fila 2: filtros + toggle vistas */}
+        {records.length > 0 && (
+          <View style={styles.headerRow2}>
+            <View style={styles.filterBar}>
+              <FilterDropdown
+                label="Zona"
+                value={filterZona}
+                options={availableZones}
+                colors={colors}
+                onSelect={setFilterZona}
+              />
+              <FilterDropdown
+                label="Estatus"
+                value={filterStatus}
+                options={availableStatuses}
+                colors={colors}
+                onSelect={setFilterStatus}
+              />
+              <FilterDropdown
+                label="Tipo"
+                value={filterStructure}
+                options={availableStructures}
+                colors={colors}
+                onSelect={setFilterStructure}
+              />
+              {activeFilters > 0 && (
+                <TouchableOpacity onPress={clearFilters} style={[filterDropStyles.clearBtn, { borderColor: colors.error }]}>
+                  <Text style={[filterDropStyles.btnText, { color: colors.error }]}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Toggle cards / lista */}
+            <View style={[styles.viewToggle, { backgroundColor: colors.surfaceVariant, borderColor: colors.outlineVariant }]}>
+              <TouchableOpacity
+                style={[styles.toggleBtn, viewMode === 'cards' && { backgroundColor: colors.primary }]}
+                onPress={() => setViewMode('cards')}
+                activeOpacity={0.8}
+              >
+                <IconButton
+                  icon="view-grid"
+                  size={18}
+                  iconColor={viewMode === 'cards' ? colors.onPrimary : colors.onSurfaceVariant}
+                  style={styles.toggleIcon}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleBtn, viewMode === 'list' && { backgroundColor: colors.primary }]}
+                onPress={() => setViewMode('list')}
+                activeOpacity={0.8}
+              >
+                <IconButton
+                  icon="format-list-bulleted"
+                  size={18}
+                  iconColor={viewMode === 'list' ? colors.onPrimary : colors.onSurfaceVariant}
+                  style={styles.toggleIcon}
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Cabecera de columnas para vista lista */}
@@ -984,39 +1259,83 @@ export default function RecordListScreen() {
       )}
 
       <FlatList
-        data={records}
+        key={viewMode === 'cards' && isTablet ? 'cards-2col' : 'cards-1col'}
+        data={pagedRecords}
         keyExtractor={(item) => item.id}
+        numColumns={viewMode === 'cards' && isTablet ? 2 : 1}
+        columnWrapperStyle={viewMode === 'cards' && isTablet ? styles.cardRow : undefined}
         renderItem={({ item, index }) =>
           viewMode === 'cards' ? (
-            <RecordCard
-              record={item}
-              colors={colors}
-              onDelete={handleDelete}
-              onCopy={handleCopy}
-              onOpenMaps={handleOpenMaps}
-              onPhotoPress={setViewerUri}
-              onEdit={setEditingRecord}
-              onTakePhoto={handleTakePhoto}
-            />
+            <View style={isTablet ? styles.cardCol : styles.cardColFull}>
+              <RecordCard
+                record={item}
+                colors={colors}
+                onDelete={handleDelete}
+                onCopy={handleCopy}
+                onOpenMaps={handleOpenMaps}
+                onPhotoPress={setViewerUri}
+                onEdit={setEditingRecord}
+                onTakePhoto={handleTakePhoto}
+              />
+            </View>
           ) : (
             <RecordListRow
               record={item}
-              index={index}
+              index={currentPage * PAGE_SIZE + index}
               colors={colors}
               onDelete={handleDelete}
               onCopy={handleCopy}
               onOpenMaps={handleOpenMaps}
               onEdit={setEditingRecord}
+              onPress={setDetailRecord}
             />
           )
         }
         ListEmptyComponent={<ListEmpty />}
+        ListFooterComponent={
+          filteredRecords.length > PAGE_SIZE ? (
+            <View style={[styles.pagination, { borderTopColor: colors.outlineVariant }]}>
+              <IconButton
+                icon="chevron-left"
+                size={22}
+                disabled={currentPage === 0}
+                iconColor={currentPage === 0 ? colors.outlineVariant : colors.primary}
+                onPress={() => setCurrentPage((p) => p - 1)}
+              />
+              <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant }}>
+                Página {currentPage + 1} de {totalPages}
+              </Text>
+              <IconButton
+                icon="chevron-right"
+                size={22}
+                disabled={currentPage >= totalPages - 1}
+                iconColor={currentPage >= totalPages - 1 ? colors.outlineVariant : colors.primary}
+                onPress={() => setCurrentPage((p) => p + 1)}
+              />
+            </View>
+          ) : null
+        }
         contentContainerStyle={viewMode === 'cards' ? styles.list : styles.listFlat}
         showsVerticalScrollIndicator={false}
       />
 
       {viewerUri && (
         <ImageViewerModal uri={viewerUri} onClose={() => setViewerUri(null)} />
+      )}
+
+      {detailRecord && (
+        <RecordDetailModal
+          key={detailRecord.id}
+          record={detailRecord}
+          colors={colors}
+          onClose={() => setDetailRecord(null)}
+          onEdit={(r) => { setDetailRecord(null); setEditingRecord(r); }}
+          onDelete={(id, uri) => { setDetailRecord(null); handleDelete(id, uri); }}
+          onCopy={handleCopy}
+          onOpenMaps={handleOpenMaps}
+          onPhotoPress={setViewerUri}
+          onTakePhoto={handleTakePhoto}
+        />
       )}
 
       {editingRecord && (
@@ -1040,18 +1359,26 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   screenHeader: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+  },
+  headerRow1: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerRow2: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
   },
   csvActions: {
     flexDirection: 'row',
     gap: 6,
-    marginLeft: 'auto',
   },
   csvBtnSmall: {
     borderRadius: 8,
@@ -1169,6 +1496,31 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
     flexGrow: 1,
   },
+  cardRow: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  cardCol: {
+    flex: 1,
+    marginBottom: 12,
+  },
+  cardColFull: {
+    flex: 1,
+  },
+  pagination: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    marginTop: 4,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 12,
+  },
+  filterBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   viewToggle: {
     flexDirection: 'row',
     borderRadius: 10,
@@ -1203,6 +1555,83 @@ const styles = StyleSheet.create({
   listHeaderActions: {
     width: 88,
     alignItems: 'center',
+  },
+});
+
+// ── Estilos del dropdown de filtros ──────────────────────────────────────────
+const filterDropStyles = StyleSheet.create({
+  btn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    maxWidth: 120,
+  },
+  clearBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  btnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    flexShrink: 1,
+  },
+});
+
+// ── Estilos del modal de detalle ──────────────────────────────────────────────
+const detailStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '88%',
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 20,
+    paddingRight: 8,
+    paddingVertical: 4,
+  },
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  photo: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  photoPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+  },
+  photoHint: {
+    position: 'absolute',
+    bottom: 8,
+    right: 10,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
   },
 });
 

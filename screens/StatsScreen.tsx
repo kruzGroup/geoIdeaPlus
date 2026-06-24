@@ -13,7 +13,7 @@ type AppColors = ReturnType<typeof useTheme>['colors'];
 const STATUS_COLOR: Record<string, string> = {
   'Calificada':   '#00796B',
   'Sin Calificar':'#9E9E9E',
-  'Sin Proceso':  '#F59E0B',
+  'En Proceso':   '#F59E0B',
 };
 
 type Stats = {
@@ -177,7 +177,7 @@ export default function StatsScreen() {
   const statusEntries: [string, number][] = [
     ['Calificada',   byStatus['Calificada']   || 0],
     ['Sin Calificar',byStatus['Sin Calificar'] || 0],
-    ['Sin Proceso',  byStatus['Sin Proceso']   || 0],
+    ['En Proceso',   byStatus['En Proceso']    || 0],
   ].filter(([, c]) => c > 0);
 
   const typeEntries  = sortedEntries(byType);

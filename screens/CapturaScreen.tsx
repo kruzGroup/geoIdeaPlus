@@ -14,7 +14,7 @@ export const RECORDS_KEY = '@geoideaplus_records';
 export const STRUCTURE_TYPES  = ['Valla', 'Rótulo', 'Mupi', 'Cruza Calle', 'Banner', 'Pendón', 'Pantalla'];
 export const TECHNOLOGY_TYPES = ['LED', 'Luminoso', 'Normal'];
 export const FACE_TYPES       = ['Una Cara', 'Doble Cara'];
-export const STATUS_TYPES     = ['Calificada', 'Sin Calificar', 'Sin Proceso'];
+export const STATUS_TYPES     = ['Calificada', 'Sin Calificar', 'En Proceso'];
 export const ZONE_TYPES       = ['Zona 1', 'Zona 2', 'Zona 3', 'Zona 4', 'Zona 5'];
 
 export type GeoRecord = {
