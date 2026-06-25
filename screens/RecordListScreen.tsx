@@ -25,6 +25,9 @@ import DimensionsInput, { calcArea } from '../components/DimensionsInput';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import * as ImagePicker from 'expo-image-picker';
+import * as Print from 'expo-print';
+import JSZip from 'jszip';
+import { buildRecordCardHTML, buildPDFHTML } from '../utils/pdfReport';
 
 const MY_TAB_INDEX = 1;
 
@@ -34,7 +37,7 @@ type AppColors = ReturnType<typeof useTheme>['colors'];
 const CSV_HEADERS = [
   'id', 'savedAt', 'latitude', 'longitude', 'mapUrl',
   'cuenta', 'fieldId', 'structureType', 'technology', 'faces', 'status', 'zona',
-  'dimWidth', 'dimHeight', 'area',
+  'dimWidth', 'dimHeight', 'area', 'photoFile',
 ];
 
 // ── Parser de una línea CSV (respeta campos entre comillas) ───────────────────
@@ -66,9 +69,10 @@ function escapeCSVField(value: unknown): string {
 }
 
 // ── Convierte array de registros en texto CSV ─────────────────────────────────
-function buildCSV(records: GeoRecord[]): string {
+function buildCSV(records: GeoRecord[], photoFiles?: string[]): string {
   const rows = [CSV_HEADERS.join(',')];
-  for (const r of records) {
+  for (let i = 0; i < records.length; i++) {
+    const r = records[i];
     rows.push([
       r.id,
       r.savedAt,
@@ -85,6 +89,7 @@ function buildCSV(records: GeoRecord[]): string {
       r.dimWidth,
       r.dimHeight,
       r.area ?? '',
+      photoFiles?.[i] ?? '',
     ].map(escapeCSVField).join(','));
   }
   return rows.join('\r\n');
@@ -92,11 +97,16 @@ function buildCSV(records: GeoRecord[]): string {
 
 // ── Convierte texto CSV en array de registros válidos ─────────────────────────
 function csvToRecords(csv: string): GeoRecord[] {
+  return parseCSVWithPhotoFiles(csv).map((p) => p.record);
+}
+
+// ── Parser que preserva photoFile alineado con cada registro ──────────────────
+function parseCSVWithPhotoFiles(csv: string): { record: GeoRecord; photoFile: string }[] {
   const lines = csv.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) return [];
 
   const headers = parseCSVRow(lines[0]).map((h) => h.trim());
-  const result: GeoRecord[] = [];
+  const result: { record: GeoRecord; photoFile: string }[] = [];
 
   for (let i = 1; i < lines.length; i++) {
     const values = parseCSVRow(lines[i]);
@@ -108,21 +118,24 @@ function csvToRecords(csv: string): GeoRecord[] {
     if (isNaN(lat) || isNaN(lon)) continue;
 
     result.push({
-      id:            obj.id || `${Date.now()}_${i}`,
-      photoUri:      '',
-      coordinates:   { latitude: lat, longitude: lon },
-      mapUrl:        obj.mapUrl || `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lon.toFixed(6)}`,
-      savedAt:       obj.savedAt || new Date().toLocaleString('es-ES'),
-      cuenta:        obj.cuenta        || '',
-      fieldId:       obj.fieldId       || '',
-      structureType: obj.structureType || '',
-      technology:    obj.technology    || '',
-      faces:         obj.faces         || '',
-      status:        obj.status        || '',
-      zona:          obj.zona          || '',
-      dimWidth:      obj.dimWidth      || '',
-      dimHeight:     obj.dimHeight     || '',
-      area:          obj.area          || null,
+      photoFile: obj.photoFile || '',
+      record: {
+        id:            obj.id || `${Date.now()}_${i}`,
+        photoUri:      '',
+        coordinates:   { latitude: lat, longitude: lon },
+        mapUrl:        obj.mapUrl || `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lon.toFixed(6)}`,
+        savedAt:       obj.savedAt || new Date().toLocaleString('es-ES'),
+        cuenta:        obj.cuenta        || '',
+        fieldId:       obj.fieldId       || '',
+        structureType: obj.structureType || '',
+        technology:    obj.technology    || '',
+        faces:         obj.faces         || '',
+        status:        obj.status        || '',
+        zona:          obj.zona          || '',
+        dimWidth:      obj.dimWidth      || '',
+        dimHeight:     obj.dimHeight     || '',
+        area:          obj.area          || null,
+      },
     });
   }
   return result;
@@ -882,6 +895,7 @@ export default function RecordListScreen() {
   const [editingRecord, setEditingRecord] = useState<GeoRecord | null>(null);
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [pdfExporting, setPdfExporting] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'list'>('cards');
   const [detailRecord, setDetailRecord] = useState<GeoRecord | null>(null);
   const [filterZona, setFilterZona]           = useState<string | null>(null);
@@ -940,6 +954,14 @@ export default function RecordListScreen() {
           const updated = records.filter((r) => r.id !== id);
           setRecords(updated);
           await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(updated));
+          const newFiltered = updated.filter((r) => {
+            if (filterZona      && r.zona          !== filterZona)      return false;
+            if (filterStatus    && r.status        !== filterStatus)    return false;
+            if (filterStructure && r.structureType !== filterStructure) return false;
+            return true;
+          });
+          const maxPage = Math.max(0, Math.ceil(newFiltered.length / PAGE_SIZE) - 1);
+          setCurrentPage((p) => Math.min(p, maxPage));
         },
       },
     ]);
@@ -981,89 +1003,124 @@ export default function RecordListScreen() {
     await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(updated));
   };
 
+  // Diálogo compartido para "agregar" o "reemplazar" tras cualquier tipo de importación
+  const confirmAndSave = (items: GeoRecord[], photoCount: number, format: string) => {
+    const photoInfo = photoCount > 0 ? ` y ${photoCount} foto${photoCount !== 1 ? 's' : ''}` : '';
+    Alert.alert(
+      `Importar ${format}`,
+      `Se encontraron ${items.length} registro${items.length !== 1 ? 's' : ''}${photoInfo}.\n\n¿Cómo deseas importarlos?`,
+      [
+        {
+          text: 'Agregar a los existentes',
+          onPress: async () => {
+            const raw = await AsyncStorage.getItem(RECORDS_KEY);
+            const existing: GeoRecord[] = raw ? JSON.parse(raw) : [];
+            const merged = [...items, ...existing];
+            await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(merged));
+            setRecords(merged);
+            Alert.alert('Importación exitosa', `${items.length} registro${items.length !== 1 ? 's' : ''}${photoInfo} agregado${items.length !== 1 ? 's' : ''} correctamente.`);
+          },
+        },
+        {
+          text: 'Reemplazar todo',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Confirmar reemplazo',
+              `Esta acción eliminará los ${records.length} registro${records.length !== 1 ? 's' : ''} actuales y los reemplazará con los ${items.length} del archivo. No se puede deshacer.`,
+              [
+                {
+                  text: 'Sí, reemplazar',
+                  style: 'destructive',
+                  onPress: async () => {
+                    await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(items));
+                    setRecords(items);
+                    Alert.alert('Importación exitosa', `Registros reemplazados. ${items.length} importado${items.length !== 1 ? 's' : ''}${photoInfo}.`);
+                  },
+                },
+                { text: 'Cancelar', style: 'cancel' },
+              ],
+            );
+          },
+        },
+        { text: 'Cancelar', style: 'cancel' },
+      ],
+    );
+  };
+
+  const doImportFromCSV = async (uri: string) => {
+    const response = await fetch(uri);
+    const content = await response.text();
+    const items = csvToRecords(content);
+    if (items.length === 0) {
+      Alert.alert('Sin registros válidos', 'El archivo no contiene registros válidos o no tiene el formato correcto.', [{ text: 'Entendido' }]);
+      return;
+    }
+    confirmAndSave(items, 0, 'CSV');
+  };
+
+  const doImportFromZIP = async (uri: string) => {
+    const zipB64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
+    const zip = await JSZip.loadAsync(zipB64, { base64: true });
+
+    const csvFile = zip.file('registros.csv');
+    if (!csvFile) {
+      Alert.alert('Formato inválido', 'El ZIP no contiene el archivo registros.csv. Asegúrate de usar un ZIP exportado desde la app.');
+      return;
+    }
+
+    const csvText = await csvFile.async('string');
+    const parsed = parseCSVWithPhotoFiles(csvText);
+
+    if (parsed.length === 0) {
+      Alert.alert('Sin registros válidos', 'El CSV dentro del ZIP no contiene registros válidos.', [{ text: 'Entendido' }]);
+      return;
+    }
+
+    // Extraer y guardar fotos en el almacenamiento de la app
+    let savedPhotos = 0;
+    for (const { record, photoFile } of parsed) {
+      if (!photoFile) continue;
+      const zipEntry = zip.file(`fotos/${photoFile}`);
+      if (!zipEntry) continue;
+      try {
+        const photoB64 = await zipEntry.async('base64');
+        const localUri = `${FileSystem.documentDirectory}${photoFile}`;
+        await FileSystem.writeAsStringAsync(localUri, photoB64, { encoding: FileSystem.EncodingType.Base64 });
+        record.photoUri = localUri;
+        savedPhotos++;
+      } catch {}
+    }
+
+    confirmAndSave(parsed.map((p) => p.record), savedPhotos, 'ZIP');
+  };
+
   const handleImportCSV = async () => {
     try {
       setImporting(true);
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['text/csv', 'text/comma-separated-values', 'text/plain', '*/*'],
+        type: ['text/csv', 'text/comma-separated-values', 'text/plain', 'application/zip', 'application/x-zip-compressed', '*/*'],
         copyToCacheDirectory: true,
       });
-
       if (result.canceled) return;
 
-      const uri = result.assets[0].uri;
-      const response = await fetch(uri);
-      const content = await response.text();
-      const items = csvToRecords(content);
+      const asset = result.assets[0];
+      const name = (asset.name ?? '').toLowerCase();
 
-      if (items.length === 0) {
-        Alert.alert(
-          'Sin registros válidos',
-          'El archivo no contiene registros válidos o no tiene el formato correcto.',
-          [{ text: 'Entendido' }],
-        );
-        return;
+      if (name.endsWith('.zip')) {
+        await doImportFromZIP(asset.uri);
+      } else {
+        await doImportFromCSV(asset.uri);
       }
-
-      Alert.alert(
-        'Importar CSV',
-        `Se encontraron ${items.length} registro${items.length !== 1 ? 's' : ''} válido${items.length !== 1 ? 's' : ''}.\n\n¿Cómo deseas importarlos?`,
-        [
-          {
-            text: 'Agregar a los existentes',
-            onPress: async () => {
-              const raw = await AsyncStorage.getItem(RECORDS_KEY);
-              const existing: GeoRecord[] = raw ? JSON.parse(raw) : [];
-              const merged = [...items, ...existing];
-              await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(merged));
-              setRecords(merged);
-              Alert.alert(
-                'Importación exitosa',
-                `${items.length} registro${items.length !== 1 ? 's' : ''} agregado${items.length !== 1 ? 's' : ''} correctamente.`,
-              );
-            },
-          },
-          {
-            text: 'Reemplazar todo',
-            style: 'destructive',
-            onPress: () => {
-              Alert.alert(
-                'Confirmar reemplazo',
-                `Esta acción eliminará los ${records.length} registro${records.length !== 1 ? 's' : ''} actuales y los reemplazará con los ${items.length} del archivo. No se puede deshacer.`,
-                [
-                  {
-                    text: 'Sí, reemplazar',
-                    style: 'destructive',
-                    onPress: async () => {
-                      await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(items));
-                      setRecords(items);
-                      Alert.alert(
-                        'Importación exitosa',
-                        `Registros reemplazados con ${items.length} del archivo.`,
-                      );
-                    },
-                  },
-                  { text: 'Cancelar', style: 'cancel' },
-                ],
-              );
-            },
-          },
-          { text: 'Cancelar', style: 'cancel' },
-        ],
-      );
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert(
-        'Error al importar',
-        `${msg}\n\nAsegúrate de que el archivo sea un CSV válido exportado desde la app.`,
-      );
+      Alert.alert('Error al importar', `${msg}\n\nAsegúrate de que el archivo sea un CSV o ZIP válido exportado desde la app.`);
     } finally {
       setImporting(false);
     }
   };
 
-  const handleExportCSV = async () => {
-    if (records.length === 0) return;
+  const doExportCSV = async () => {
     setExporting(true);
     try {
       const now = new Date();
@@ -1071,27 +1128,143 @@ export default function RecordListScreen() {
       const dateStamp =
         `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
         `_${pad(now.getHours())}-${pad(now.getMinutes())}`;
-      const filename = `geoideaplus-${dateStamp}.csv`;
-      const fileUri = FileSystem.cacheDirectory + filename;
+      const fileUri = `${FileSystem.cacheDirectory}geoideaplus-${dateStamp}.csv`;
+      await FileSystem.writeAsStringAsync(fileUri, buildCSV(records), { encoding: FileSystem.EncodingType.UTF8 });
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'text/csv',
+        dialogTitle: 'Exportar registros CSV',
+        UTI: 'public.comma-separated-values-text',
+      });
+    } catch (e) {
+      Alert.alert('Error al exportar', e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(false);
+    }
+  };
 
-      const csv = buildCSV(records);
-      await FileSystem.writeAsStringAsync(fileUri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+  const doExportZIP = async () => {
+    setExporting(true);
+    try {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const dateStamp =
+        `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
+        `_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+
+      // Calcular nombres de foto primero para usarlos en el CSV y en los archivos
+      const photoFiles: string[] = records.map((r, i) => {
+        if (!r.photoUri) return '';
+        const idx = String(i + 1).padStart(3, '0');
+        const label = r.cuenta ? `_${r.cuenta}` : r.fieldId ? `_${r.fieldId}` : '';
+        return `registro_${idx}${label}.jpg`;
+      });
+
+      const zip = new JSZip();
+      zip.file('registros.csv', buildCSV(records, photoFiles));
+
+      const fotos = zip.folder('fotos');
+      let photoCount = 0;
+      for (let i = 0; i < records.length; i++) {
+        const r = records[i];
+        if (!r.photoUri || !photoFiles[i]) continue;
+        try {
+          const b64 = await FileSystem.readAsStringAsync(r.photoUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          fotos?.file(photoFiles[i], b64, { base64: true });
+          photoCount++;
+        } catch {}
+      }
+
+      const zipB64 = await zip.generateAsync({ type: 'base64' });
+      const fileUri = `${FileSystem.cacheDirectory}geoideaplus-${dateStamp}.zip`;
+      await FileSystem.writeAsStringAsync(fileUri, zipB64, { encoding: FileSystem.EncodingType.Base64 });
+
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/zip',
+        dialogTitle: `Exportar ZIP (${photoCount} foto${photoCount !== 1 ? 's' : ''})`,
+        UTI: 'public.zip-archive',
+      });
+    } catch (e) {
+      Alert.alert('Error al exportar', e instanceof Error ? e.message : String(e));
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (records.length === 0) return;
+    const hasPhotos = records.some((r) => r.photoUri);
+    if (!hasPhotos) {
+      doExportCSV();
+      return;
+    }
+    Alert.alert(
+      'Exportar registros',
+      '¿Qué formato deseas exportar?',
+      [
+        {
+          text: 'Solo CSV',
+          onPress: doExportCSV,
+        },
+        {
+          text: 'CSV + Fotos (ZIP)',
+          onPress: doExportZIP,
+        },
+        { text: 'Cancelar', style: 'cancel' },
+      ],
+    );
+  };
+
+  const handleExportPDF = async () => {
+    if (records.length === 0) return;
+    setPdfExporting(true);
+    try {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const fechaReporte =
+        `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ` +
+        `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+      // Leer fotos y construir tarjetas
+      const cards = await Promise.all(
+        records.map(async (r, i) => {
+          let photoB64: string | null = null;
+          if (r.photoUri) {
+            try {
+              photoB64 = await FileSystem.readAsStringAsync(r.photoUri, {
+                encoding: FileSystem.EncodingType.Base64,
+              });
+            } catch {}
+          }
+          return buildRecordCardHTML({ record: r, photoB64, index: i, total: records.length });
+        })
+      );
+
+      const html = buildPDFHTML(cards, fechaReporte);
+      const { uri } = await Print.printToFileAsync({ html, base64: false });
+
+      const dateStamp =
+        `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
+        `_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+      const destUri = `${FileSystem.cacheDirectory}geoideaplus-reporte-${dateStamp}.pdf`;
+      await FileSystem.moveAsync({ from: uri, to: destUri });
 
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
         Alert.alert('No disponible', 'Tu dispositivo no soporta compartir archivos.');
         return;
       }
-      await Sharing.shareAsync(fileUri, {
-        mimeType: 'text/csv',
-        dialogTitle: 'Exportar registros',
-        UTI: 'public.comma-separated-values-text',
+      await Sharing.shareAsync(destUri, {
+        mimeType: 'application/pdf',
+        dialogTitle: 'Exportar reporte PDF',
+        UTI: 'com.adobe.pdf',
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      Alert.alert('Error al exportar', msg);
+      Alert.alert('Error al generar PDF', msg);
     } finally {
-      setExporting(false);
+      setPdfExporting(false);
     }
   };
 
@@ -1130,48 +1303,114 @@ export default function RecordListScreen() {
             </RNText>
           )}
           <View style={styles.csvActions}>
-            <Button
-              mode="outlined"
-              icon="arrow-down-circle-outline"
-              contentStyle={styles.csvBtnContent}
-              labelStyle={styles.csvBtnLabel}
-              style={styles.csvBtnSmall}
-              loading={importing}
-              disabled={importing}
-              onPress={handleImportCSV}
-            >
-              Importar
-            </Button>
-            {records.length === 0 ? (
-              <Pressable
-                onPress={() =>
-                  Alert.alert('Sin registros', 'No se pueden exportar registros porque no hay ninguno.')
-                }
-              >
+            {isTablet ? (
+              /* ── Tablet: botones con icono + texto ── */
+              <>
                 <Button
-                  mode="contained-tonal"
-                  icon="arrow-up-circle-outline"
+                  mode="outlined"
+                  icon="arrow-down-circle-outline"
                   contentStyle={styles.csvBtnContent}
                   labelStyle={styles.csvBtnLabel}
                   style={styles.csvBtnSmall}
-                  disabled
+                  loading={importing}
+                  disabled={importing}
+                  onPress={handleImportCSV}
                 >
-                  Exportar
+                  Importar
                 </Button>
-              </Pressable>
+                {records.length === 0 ? (
+                  <Pressable onPress={() => Alert.alert('Sin registros', 'No se pueden exportar registros porque no hay ninguno.')}>
+                    <Button
+                      mode="contained-tonal"
+                      icon="arrow-up-circle-outline"
+                      contentStyle={styles.csvBtnContent}
+                      labelStyle={styles.csvBtnLabel}
+                      style={styles.csvBtnSmall}
+                      disabled
+                    >
+                      Exportar
+                    </Button>
+                  </Pressable>
+                ) : (
+                  <Button
+                    mode="contained-tonal"
+                    icon="arrow-up-circle-outline"
+                    contentStyle={styles.csvBtnContent}
+                    labelStyle={styles.csvBtnLabel}
+                    style={styles.csvBtnSmall}
+                    loading={exporting}
+                    disabled={exporting}
+                    onPress={handleExportCSV}
+                  >
+                    Exportar
+                  </Button>
+                )}
+                {records.length === 0 ? (
+                  <Pressable onPress={() => Alert.alert('Sin registros', 'No hay registros para generar el reporte PDF.')}>
+                    <Button
+                      mode="contained-tonal"
+                      icon="file-pdf-box"
+                      contentStyle={styles.csvBtnContent}
+                      labelStyle={[styles.csvBtnLabel, { color: '#B71C1C' }]}
+                      style={[styles.csvBtnSmall, { backgroundColor: '#FFEBEE' }]}
+                      disabled
+                    >
+                      PDF
+                    </Button>
+                  </Pressable>
+                ) : (
+                  <Button
+                    mode="contained-tonal"
+                    icon="file-pdf-box"
+                    contentStyle={styles.csvBtnContent}
+                    labelStyle={[styles.csvBtnLabel, { color: '#B71C1C' }]}
+                    style={[styles.csvBtnSmall, { backgroundColor: '#FFEBEE' }]}
+                    loading={pdfExporting}
+                    disabled={pdfExporting}
+                    onPress={handleExportPDF}
+                  >
+                    PDF
+                  </Button>
+                )}
+              </>
             ) : (
-              <Button
-                mode="contained-tonal"
-                icon="arrow-up-circle-outline"
-                contentStyle={styles.csvBtnContent}
-                labelStyle={styles.csvBtnLabel}
-                style={styles.csvBtnSmall}
-                loading={exporting}
-                disabled={exporting}
-                onPress={handleExportCSV}
-              >
-                Exportar
-              </Button>
+              /* ── Móvil: solo iconos ── */
+              <>
+                <IconButton
+                  icon="arrow-down-circle-outline"
+                  size={22}
+                  mode="outlined"
+                  iconColor={colors.primary}
+                  loading={importing}
+                  disabled={importing}
+                  onPress={handleImportCSV}
+                  style={styles.headerIconBtn}
+                />
+                <IconButton
+                  icon="arrow-up-circle-outline"
+                  size={22}
+                  mode="contained-tonal"
+                  iconColor={records.length === 0 ? colors.outlineVariant : colors.primary}
+                  loading={exporting}
+                  disabled={exporting || records.length === 0}
+                  onPress={records.length === 0
+                    ? () => Alert.alert('Sin registros', 'No se pueden exportar registros porque no hay ninguno.')
+                    : handleExportCSV}
+                  style={styles.headerIconBtn}
+                />
+                <IconButton
+                  icon="file-pdf-box"
+                  size={22}
+                  mode="contained-tonal"
+                  iconColor={records.length === 0 ? colors.outlineVariant : '#B71C1C'}
+                  loading={pdfExporting}
+                  disabled={pdfExporting || records.length === 0}
+                  onPress={records.length === 0
+                    ? () => Alert.alert('Sin registros', 'No hay registros para generar el reporte PDF.')
+                    : handleExportPDF}
+                  style={[styles.headerIconBtn, records.length > 0 && { backgroundColor: '#FFEBEE' }]}
+                />
+              </>
             )}
           </View>
         </View>
@@ -1300,7 +1539,7 @@ export default function RecordListScreen() {
                 size={22}
                 disabled={currentPage === 0}
                 iconColor={currentPage === 0 ? colors.outlineVariant : colors.primary}
-                onPress={() => setCurrentPage((p) => p - 1)}
+                onPress={() => setCurrentPage((p) => Math.max(0, p - 1))}
               />
               <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant }}>
                 Página {currentPage + 1} de {totalPages}
@@ -1310,7 +1549,7 @@ export default function RecordListScreen() {
                 size={22}
                 disabled={currentPage >= totalPages - 1}
                 iconColor={currentPage >= totalPages - 1 ? colors.outlineVariant : colors.primary}
-                onPress={() => setCurrentPage((p) => p + 1)}
+                onPress={() => setCurrentPage((p) => Math.min(p + 1, totalPages - 1))}
               />
             </View>
           ) : null
@@ -1378,10 +1617,17 @@ const styles = StyleSheet.create({
   },
   csvActions: {
     flexDirection: 'row',
-    gap: 6,
+    alignItems: 'center',
+    gap: 4,
   },
   csvBtnSmall: {
     borderRadius: 8,
+  },
+  headerIconBtn: {
+    margin: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
   },
   csvBtnContent: {
     paddingVertical: 0,
