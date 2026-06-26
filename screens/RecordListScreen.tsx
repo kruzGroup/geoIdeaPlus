@@ -26,6 +26,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import * as ImagePicker from 'expo-image-picker';
 import * as Print from 'expo-print';
+import * as ImageManipulator from 'expo-image-manipulator';
 import JSZip from 'jszip';
 import { buildRecordCardHTML, buildPDFHTML } from '../utils/pdfReport';
 
@@ -1257,20 +1258,23 @@ export default function RecordListScreen() {
         `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ` +
         `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
-      // Leer fotos secuencialmente para evitar picos de memoria
+      // Leer fotos como miniaturas pequeñas para no colapsar el WebView de expo-print
       const cards: string[] = [];
       for (let i = 0; i < records.length; i++) {
         const r = records[i];
         let photoB64: string | null = null;
         if (r.photoUri) {
           try {
-            photoB64 = await withTimeout(
-              FileSystem.readAsStringAsync(r.photoUri, {
-                encoding: FileSystem.EncodingType.Base64,
-              }),
-              8000,
-              `foto ${i + 1}`
+            const thumb = await withTimeout(
+              ImageManipulator.manipulateAsync(
+                r.photoUri,
+                [{ resize: { width: 300 } }],
+                { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+              ),
+              10000,
+              `miniatura ${i + 1}`
             );
+            photoB64 = thumb.base64 ?? null;
           } catch {}
         }
         cards.push(buildRecordCardHTML({ record: r, photoB64, index: i, total: records.length }));
@@ -1278,8 +1282,8 @@ export default function RecordListScreen() {
 
       const html = buildPDFHTML(cards, fechaReporte);
       const { uri } = await withTimeout(
-        Print.printToFileAsync({ html, base64: false }),
-        30000,
+        Print.printToFileAsync({ html }),
+        60000,
         'generación PDF'
       );
 
