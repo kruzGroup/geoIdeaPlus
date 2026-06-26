@@ -66,7 +66,7 @@ function AppContent() {
           showTextLabel
           iconPosition="top"
           style={{ backgroundColor: colors.surface }}
-          tabLabelStyle={{ fontSize: 8, letterSpacing: 0.8, fontFamily: 'Cinzel_700Bold' }}
+          tabLabelStyle={{ fontSize: 7.5, letterSpacing: 0.2, fontFamily: 'Cinzel_700Bold' }}
           dark={dark}
           disableSwipe
         >

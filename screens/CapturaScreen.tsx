@@ -11,7 +11,7 @@ import CompletedTask from '../components/CompletedTask';
 
 export const RECORDS_KEY = '@geoideaplus_records';
 
-export const STRUCTURE_TYPES  = ['Valla', 'Rótulo', 'Mupi', 'Cruza Calle', 'Banner', 'Pendón', 'Pantalla'];
+export const STRUCTURE_TYPES  = ['Valla', 'Rótulo', 'Mupi', 'Cruza Calle', 'Banner', 'Pendón', 'Pantalla', 'Microperforado'];
 export const TECHNOLOGY_TYPES = ['LED', 'Luminoso', 'Normal'];
 export const FACE_TYPES       = ['Una Cara', 'Doble Cara'];
 export const STATUS_TYPES     = ['Calificada', 'Sin Calificar', 'En Proceso'];
@@ -25,6 +25,7 @@ export type GeoRecord = {
   savedAt: string;
   cuenta: string;
   fieldId: string;
+  propietario: string;
   structureType: string;
   technology: string;
   faces: string;
@@ -112,6 +113,7 @@ export default function CapturaScreen() {
   const [dimHeight, setDimHeight] = useState('');
   const [cuenta, setCuenta] = useState('');
   const [fieldId, setFieldId] = useState('');
+  const [propietario, setPropietario] = useState('');
   const [structureType, setStructureType] = useState('');
   const [menuVisible, setMenuVisible] = useState(false);
   const [technology, setTechnology] = useState('');
@@ -165,7 +167,7 @@ export default function CapturaScreen() {
       await FileSystem.copyAsync({ from: result.assets[0].uri, to: destUri });
 
       const { latitude, longitude } = location.coords;
-      const mapUrl = `https://www.google.com/maps/search/?api=1&query=${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+      const mapUrl = `https://www.google.com/maps/search/?api=1&query=${latitude.toFixed(6)}%2C${longitude.toFixed(6)}`;
 
       setPreview({
         photoUri: destUri,
@@ -189,13 +191,14 @@ export default function CapturaScreen() {
       const raw = await AsyncStorage.getItem(RECORDS_KEY);
       const records: GeoRecord[] = raw ? JSON.parse(raw) : [];
       const area = calcArea(dimWidth, dimHeight);
-      records.unshift({ id: Date.now().toString(), ...preview, dimWidth, dimHeight, area, cuenta, fieldId, structureType, technology, faces, status, zona }); // más nuevo primero
+      records.unshift({ id: Date.now().toString(), ...preview, dimWidth, dimHeight, area, cuenta, fieldId, propietario, structureType, technology, faces, status, zona }); // más nuevo primero
       await AsyncStorage.setItem(RECORDS_KEY, JSON.stringify(records));
       setPreview(null);
       setDimWidth('');
       setDimHeight('');
       setCuenta('');
       setFieldId('');
+      setPropietario('');
       setStructureType('');
       setTechnology('');
       setFaces('');
@@ -220,6 +223,7 @@ export default function CapturaScreen() {
     setDimHeight('');
     setCuenta('');
     setFieldId('');
+    setPropietario('');
     setStructureType('');
     setTechnology('');
     setFaces('');
@@ -331,6 +335,22 @@ export default function CapturaScreen() {
                     placeholderTextColor={colors.onSurfaceVariant}
                     value={fieldId}
                     onChangeText={setFieldId}
+                  />
+                </View>
+              </View>
+
+              <View style={[styles.fieldRow, { marginTop: 0 }]}>
+                <View style={{ flex: 1 }}>
+                  <Text variant="labelLarge" style={[styles.fieldLabel, { color: colors.onSurfaceVariant }]}>
+                    Propietario
+                  </Text>
+                  <TextInput
+                    style={[styles.fieldInput, { borderColor: colors.outline, color: colors.onSurface, backgroundColor: colors.surface, textAlign: 'left' }]}
+                    placeholder="Nombre del propietario"
+                    placeholderTextColor={colors.onSurfaceVariant}
+                    value={propietario}
+                    onChangeText={setPropietario}
+                    autoCapitalize="words"
                   />
                 </View>
               </View>

@@ -1,18 +1,17 @@
 import React, { useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import LottieView from 'lottie-react-native';
+import Constants from 'expo-constants';
 
-// Importación con ruta relativa — NO usar alias @/ porque no está configurado en este proyecto
 import animation from '../assets/lotties/startLocation.json';
 
-// Tiempo máximo de espera por si onAnimationFinish no se dispara
 const FALLBACK_MS = 4000;
+const version = Constants.expoConfig?.version ?? '1.0.0';
 
 interface Props {
   onFinish?: (isCancelled: boolean) => void;
 }
 export default function SplashScreen({ onFinish = () => {} }: Props) {
-  // Fallback de seguridad: avanza aunque la animación no notifique su fin
   useEffect(() => {
     const timer = setTimeout(() => onFinish(true), FALLBACK_MS);
     return () => clearTimeout(timer);
@@ -28,6 +27,7 @@ export default function SplashScreen({ onFinish = () => {} }: Props) {
         onAnimationFinish={onFinish}
         style={styles.animation}
       />
+      <Text style={styles.version}>v{version}</Text>
     </View>
   );
 }
@@ -42,5 +42,12 @@ const styles = StyleSheet.create({
   animation: {
     width: 240,
     height: 240,
+  },
+  version: {
+    position: 'absolute',
+    bottom: 40,
+    fontSize: 12,
+    color: '#BBBBBB',
+    letterSpacing: 1,
   },
 });

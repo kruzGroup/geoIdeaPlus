@@ -36,7 +36,7 @@ type AppColors = ReturnType<typeof useTheme>['colors'];
 // ── CSV: cabeceras canónicas ───────────────────────────────────────────────────
 const CSV_HEADERS = [
   'id', 'savedAt', 'latitude', 'longitude', 'mapUrl',
-  'cuenta', 'fieldId', 'structureType', 'technology', 'faces', 'status', 'zona',
+  'cuenta', 'fieldId', 'propietario', 'structureType', 'technology', 'faces', 'status', 'zona',
   'dimWidth', 'dimHeight', 'area', 'photoFile',
 ];
 
@@ -76,11 +76,12 @@ function buildCSV(records: GeoRecord[], photoFiles?: string[]): string {
     rows.push([
       r.id,
       r.savedAt,
-      r.coordinates?.latitude  ?? '',
-      r.coordinates?.longitude ?? '',
+      r.coordinates?.latitude?.toFixed(6)  ?? '',
+      r.coordinates?.longitude?.toFixed(6) ?? '',
       r.mapUrl,
       r.cuenta,
       r.fieldId,
+      r.propietario,
       r.structureType,
       r.technology,
       r.faces,
@@ -113,8 +114,8 @@ function parseCSVWithPhotoFiles(csv: string): { record: GeoRecord; photoFile: st
     const obj: Record<string, string> = {};
     headers.forEach((h, idx) => { obj[h] = (values[idx] ?? '').trim(); });
 
-    const lat = parseFloat(obj.latitude);
-    const lon = parseFloat(obj.longitude);
+    const lat = parseFloat((obj.latitude  ?? '').replace(',', '.'));
+    const lon = parseFloat((obj.longitude ?? '').replace(',', '.'));
     if (isNaN(lat) || isNaN(lon)) continue;
 
     result.push({
@@ -123,10 +124,11 @@ function parseCSVWithPhotoFiles(csv: string): { record: GeoRecord; photoFile: st
         id:            obj.id || `${Date.now()}_${i}`,
         photoUri:      '',
         coordinates:   { latitude: lat, longitude: lon },
-        mapUrl:        obj.mapUrl || `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lon.toFixed(6)}`,
+        mapUrl:        `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)}%2C${lon.toFixed(6)}`,
         savedAt:       obj.savedAt || new Date().toLocaleString('es-ES'),
         cuenta:        obj.cuenta        || '',
         fieldId:       obj.fieldId       || '',
+        propietario:   obj.propietario   || '',
         structureType: obj.structureType || '',
         technology:    obj.technology    || '',
         faces:         obj.faces         || '',
@@ -265,7 +267,7 @@ function LocalDropdownField({ label, options, value, visible, onOpen, onClose, o
 }
 
 // ── Modal de edición (bottom sheet) ──────────────────────────────────────────
-type EditableFields = Pick<GeoRecord, 'cuenta' | 'fieldId' | 'dimWidth' | 'dimHeight' | 'area' | 'structureType' | 'technology' | 'faces' | 'status' | 'zona'>;
+type EditableFields = Pick<GeoRecord, 'cuenta' | 'fieldId' | 'propietario' | 'dimWidth' | 'dimHeight' | 'area' | 'structureType' | 'technology' | 'faces' | 'status' | 'zona'>;
 
 interface EditModalProps {
   record: GeoRecord;
@@ -277,6 +279,7 @@ interface EditModalProps {
 function EditModal({ record, colors, onSave, onClose }: EditModalProps) {
   const [cuenta, setCuenta]               = useState(record.cuenta        || '');
   const [fieldId, setFieldId]             = useState(record.fieldId       || '');
+  const [propietario, setPropietario]     = useState(record.propietario   || '');
   const [dimWidth, setDimWidth]           = useState(record.dimWidth      || '');
   const [dimHeight, setDimHeight]         = useState(record.dimHeight     || '');
   const [structureType, setStructureType] = useState(record.structureType || '');
@@ -293,7 +296,7 @@ function EditModal({ record, colors, onSave, onClose }: EditModalProps) {
 
   const handleSave = () => {
     const area = calcArea(dimWidth, dimHeight);
-    onSave({ cuenta, fieldId, dimWidth, dimHeight, area, structureType, technology, faces, status, zona });
+    onSave({ cuenta, fieldId, propietario, dimWidth, dimHeight, area, structureType, technology, faces, status, zona });
   };
 
   return (
@@ -338,6 +341,23 @@ function EditModal({ record, colors, onSave, onClose }: EditModalProps) {
                   placeholderTextColor={colors.onSurfaceVariant}
                   value={fieldId}
                   onChangeText={setFieldId}
+                />
+              </View>
+            </View>
+
+            {/* Propietario */}
+            <View style={[editStyles.fieldRow, { marginBottom: 16 }]}>
+              <View style={{ flex: 1 }}>
+                <Text variant="labelLarge" style={[editStyles.fieldLabel, { color: colors.onSurfaceVariant }]}>
+                  Propietario
+                </Text>
+                <TextInput
+                  style={[editStyles.fieldInput, { borderColor: colors.outline, color: colors.onSurface, backgroundColor: colors.background, textAlign: 'left' }]}
+                  placeholder="Nombre del propietario"
+                  placeholderTextColor={colors.onSurfaceVariant}
+                  value={propietario}
+                  onChangeText={setPropietario}
+                  autoCapitalize="words"
                 />
               </View>
             </View>
@@ -459,7 +479,7 @@ interface RecordCardProps {
 
 function RecordCard({ record, colors, onDelete, onCopy, onOpenMaps, onPhotoPress, onEdit, onTakePhoto }: RecordCardProps) {
   const hasDetails =
-    record.cuenta || record.fieldId || record.structureType ||
+    record.cuenta || record.fieldId || record.propietario || record.structureType ||
     record.technology || record.faces || record.status || record.zona ||
     record.dimWidth || record.dimHeight;
 
@@ -550,6 +570,7 @@ function RecordCard({ record, colors, onDelete, onCopy, onOpenMaps, onPhotoPress
             <Divider style={styles.divider} />
             <MetaRow label="Cuenta" value={record.cuenta} colors={colors} />
             <MetaRow label="ID" value={record.fieldId} colors={colors} />
+            <MetaRow label="Propietario" value={record.propietario} colors={colors} />
             {(record.dimWidth || record.dimHeight) && (
               <MetaRow
                 label="Dimensiones"
@@ -620,7 +641,7 @@ interface RecordDetailModalProps {
 
 function RecordDetailModal({ record, colors, onClose, onEdit, onDelete, onCopy, onOpenMaps, onPhotoPress, onTakePhoto }: RecordDetailModalProps) {
   const hasDetails =
-    record.cuenta || record.fieldId || record.structureType ||
+    record.cuenta || record.fieldId || record.propietario || record.structureType ||
     record.technology || record.faces || record.status || record.zona ||
     record.dimWidth || record.dimHeight;
 
@@ -709,6 +730,7 @@ function RecordDetailModal({ record, colors, onClose, onEdit, onDelete, onCopy, 
                 <Divider style={styles.divider} />
                 <MetaRow label="Cuenta" value={record.cuenta} colors={colors} />
                 <MetaRow label="ID" value={record.fieldId} colors={colors} />
+                <MetaRow label="Propietario" value={record.propietario} colors={colors} />
                 {(record.dimWidth || record.dimHeight) && (
                   <MetaRow
                     label="Dimensiones"
@@ -1219,6 +1241,15 @@ export default function RecordListScreen() {
   const handleExportPDF = async () => {
     if (records.length === 0) return;
     setPdfExporting(true);
+
+    const withTimeout = <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> =>
+      Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`Tiempo agotado: ${label}`)), ms)
+        ),
+      ]);
+
     try {
       const now = new Date();
       const pad = (n: number) => String(n).padStart(2, '0');
@@ -1226,23 +1257,31 @@ export default function RecordListScreen() {
         `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()} ` +
         `${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
-      // Leer fotos y construir tarjetas
-      const cards = await Promise.all(
-        records.map(async (r, i) => {
-          let photoB64: string | null = null;
-          if (r.photoUri) {
-            try {
-              photoB64 = await FileSystem.readAsStringAsync(r.photoUri, {
+      // Leer fotos secuencialmente para evitar picos de memoria
+      const cards: string[] = [];
+      for (let i = 0; i < records.length; i++) {
+        const r = records[i];
+        let photoB64: string | null = null;
+        if (r.photoUri) {
+          try {
+            photoB64 = await withTimeout(
+              FileSystem.readAsStringAsync(r.photoUri, {
                 encoding: FileSystem.EncodingType.Base64,
-              });
-            } catch {}
-          }
-          return buildRecordCardHTML({ record: r, photoB64, index: i, total: records.length });
-        })
-      );
+              }),
+              8000,
+              `foto ${i + 1}`
+            );
+          } catch {}
+        }
+        cards.push(buildRecordCardHTML({ record: r, photoB64, index: i, total: records.length }));
+      }
 
       const html = buildPDFHTML(cards, fechaReporte);
-      const { uri } = await Print.printToFileAsync({ html, base64: false });
+      const { uri } = await withTimeout(
+        Print.printToFileAsync({ html, base64: false }),
+        30000,
+        'generación PDF'
+      );
 
       const dateStamp =
         `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +

@@ -24,8 +24,9 @@ export function buildRecordCardHTML({ record: r, photoB64, index, total }: Recor
   const dataRows = [
     `<div class="dr"><span class="dl">Latitud</span><span class="dv coord">${r.coordinates.latitude.toFixed(6)}</span></div>`,
     `<div class="dr"><span class="dl">Longitud</span><span class="dv coord">${r.coordinates.longitude.toFixed(6)}</span></div>`,
-    r.cuenta        ? `<div class="dr"><span class="dl">Cuenta</span><span class="dv">${r.cuenta}</span></div>`           : '',
-    r.fieldId       ? `<div class="dr"><span class="dl">ID</span><span class="dv">${r.fieldId}</span></div>`               : '',
+    `<div class="dr"><span class="dl">Cuenta</span><span class="dv">${r.cuenta || '—'}</span></div>`,
+    `<div class="dr"><span class="dl">ID Estructura</span><span class="dv">${r.fieldId || '—'}</span></div>`,
+    `<div class="dr"><span class="dl">Propietario</span><span class="dv">${r.propietario || '—'}</span></div>`,
     r.structureType ? `<div class="dr"><span class="dl">Estructura</span><span class="dv">${r.structureType}</span></div>` : '',
     r.technology    ? `<div class="dr"><span class="dl">Tecnología</span><span class="dv">${r.technology}</span></div>`    : '',
     r.faces         ? `<div class="dr"><span class="dl">Caras</span><span class="dv">${r.faces}</span></div>`              : '',

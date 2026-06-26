@@ -1,8 +1,9 @@
 import React from 'react';
 import { View, StyleSheet, ScrollView, Image, useWindowDimensions } from 'react-native';
 import { useTheme, Text, Divider } from 'react-native-paper';
+import Constants from 'expo-constants';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 type AppColors = ReturnType<typeof useTheme>['colors'];
 
@@ -61,11 +62,6 @@ export default function AboutScreen() {
       showsVerticalScrollIndicator={false}
     >
       {/* ── Hero ── */}
-      <View style={[styles.versionBadge, { backgroundColor: colors.primary }]}>
-        <Text variant="labelSmall" style={{ color: colors.onPrimary, letterSpacing: 1 }}>
-          v{APP_VERSION}
-        </Text>
-      </View>
       <Image
         source={require('../assets/aboutBackground.png')}
         style={[styles.heroBanner, { height: bannerHeight }]}
@@ -90,6 +86,12 @@ export default function AboutScreen() {
         <Text variant="labelSmall" style={{ color: colors.outlineVariant, textAlign: 'center', marginTop: 2 }}>
           KruzGroup · Todos los derechos reservados
         </Text>
+        <Text variant="labelSmall" style={{ color: colors.outlineVariant, textAlign: 'center', marginTop: 10 }}>
+          Inventario Digital de Estructuras Análogas, <Text style={{ fontWeight: '700' }}>geoIDEA</Text>
+        </Text>
+        <Text variant="labelSmall" style={{ color: colors.outlineVariant, textAlign: 'center', marginTop: 4, letterSpacing: 1 }}>
+          v{APP_VERSION}
+        </Text>
       </View>
     </ScrollView>
   );
@@ -100,14 +102,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: 48,
     gap: 4,
-  },
-  versionBadge: {
-    alignSelf: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    borderRadius: 20,
-    marginTop: 16,
-    marginBottom: 10,
   },
   heroBanner: {
     width: '100%',
