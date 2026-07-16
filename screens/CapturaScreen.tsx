@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Image, ScrollView, Alert, Linking, TextInput } from 'react-native';
+import { View, StyleSheet, Image, ScrollView, Alert, Linking, TextInput, Modal } from 'react-native';
 import { useTheme, Text, Button, Card, Divider, ActivityIndicator, Menu, TouchableRipple } from 'react-native-paper';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -8,6 +8,7 @@ import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DimensionsInput, { calcArea } from '../components/DimensionsInput';
 import CompletedTask from '../components/CompletedTask';
+import ExpoGoMeasureCamera from '../components/ExpoGoMeasureCamera';
 
 export const RECORDS_KEY = '@geoideaplus_records';
 
@@ -124,6 +125,7 @@ export default function CapturaScreen() {
   const [statusMenuVisible, setStatusMenuVisible] = useState(false);
   const [zona, setZona] = useState('');
   const [zonaMenuVisible, setZonaMenuVisible] = useState(false);
+  const [showMeasure, setShowMeasure] = useState(false);
 
   // ── Iniciar captura ─────────────────────────────────────────────────────
   const startCapture = async () => {
@@ -299,9 +301,20 @@ export default function CapturaScreen() {
 
               <Divider style={styles.divider} />
 
-              <Text variant="labelLarge" style={{ color: colors.onSurfaceVariant, marginBottom: 8 }}>
-                Dimensiones
-              </Text>
+              <View style={styles.dimensionsHeader}>
+                <Text variant="labelLarge" style={{ color: colors.onSurfaceVariant }}>
+                  Dimensiones
+                </Text>
+                <Button
+                  mode="outlined"
+                  icon="ruler"
+                  compact
+                  onPress={() => setShowMeasure(true)}
+                  labelStyle={styles.measureButtonLabel}
+                >
+                  Medir
+                </Button>
+              </View>
               <DimensionsInput
                 width={dimWidth}
                 height={dimHeight}
@@ -461,6 +474,22 @@ export default function CapturaScreen() {
           >
             Descartar
           </Button>
+
+          {/* Medición trigonométrica con cámara + sensores */}
+          <Modal
+            visible={showMeasure}
+            animationType="slide"
+            onRequestClose={() => setShowMeasure(false)}
+          >
+            <ExpoGoMeasureCamera
+              onConfirm={({ width, height }) => {
+                setDimWidth(String(width));
+                setDimHeight(String(height));
+                setShowMeasure(false);
+              }}
+              onCancel={() => setShowMeasure(false)}
+            />
+          </Modal>
         </>
       )}
 
@@ -633,6 +662,16 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
     fontSize: 13,
     textAlign: 'center',
+  },
+  dimensionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  measureButtonLabel: {
+    fontSize: 12,
+    marginVertical: 4,
   },
   dropdownTrigger: {
     borderWidth: 1,
